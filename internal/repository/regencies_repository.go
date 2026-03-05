@@ -43,7 +43,7 @@ func escapeString(s string) string {
 
 func (r *regencyRepository) Insert(ctx context.Context, regency *domain.Regency) error {
 	query := fmt.Sprintf(`
-		INSERT INTO regencies (bi_id, regency_name)
+		INSERT INTO vdapp_3.regencies (bi_id, regency_name)
 		VALUES ('%s', '%s')
 	`, escapeString(regency.BIID), escapeString(regency.RegencyName))
 
@@ -54,7 +54,7 @@ func (r *regencyRepository) Insert(ctx context.Context, regency *domain.Regency)
 func (r *regencyRepository) Get(ctx context.Context) ([]domain.Regency, error) {
 	query := `
 		SELECT bi_id, regency_name
-		FROM regencies
+		FROM vdapp_3.regencies
 	`
 
 	respBody, err := r.executeQuery(query)
@@ -72,7 +72,7 @@ func (r *regencyRepository) Get(ctx context.Context) ([]domain.Regency, error) {
 func (r *regencyRepository) FindByID(ctx context.Context, id int) (*domain.Regency, error) {
 	query := fmt.Sprintf(`
 		SELECT bi_id, regency_name
-		FROM regencies
+		FROM vdapp_3.regencies
 		WHERE id = %d
 	`, id)
 
@@ -95,7 +95,7 @@ func (r *regencyRepository) FindByID(ctx context.Context, id int) (*domain.Regen
 
 func (r *regencyRepository) Update(ctx context.Context, regency *domain.Regency) (*domain.Regency, error) {
 	query := fmt.Sprintf(`
-		UPDATE regencies
+		UPDATE vdapp_3.regencies
 		SET regency_name = '%s'
 		WHERE id = %d
 	`, escapeString(regency.RegencyName), regency.ID)
@@ -110,7 +110,7 @@ func (r *regencyRepository) Update(ctx context.Context, regency *domain.Regency)
 
 func (r *regencyRepository) Delete(ctx context.Context, id int) error {
 	query := fmt.Sprintf(`
-		DELETE FROM regencies
+		DELETE FROM vdapp_3.regencies
 		WHERE id = %d
 	`, id)
 
@@ -120,7 +120,7 @@ func (r *regencyRepository) Delete(ctx context.Context, id int) error {
 
 func (r *regencyRepository) UpdateBIIDByName(ctx context.Context, name string, biid string) error {
 	query := fmt.Sprintf(`
-		UPDATE regencies
+		UPDATE vdapp_3.regencies
 		SET bi_id = '%s'
 		WHERE UPPER(TRIM(regency_name)) = UPPER(TRIM('%s'))
 	`, escapeString(biid), escapeString(name))

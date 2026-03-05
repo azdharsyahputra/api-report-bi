@@ -39,7 +39,7 @@ func (r *branchCodeBankRepository) executeQuery(query string) ([]byte, error) {
 func (r *branchCodeBankRepository) Insert(ctx context.Context, code *domain.BranchCodeBank) error {
 	nowStr := time.Now().Format("2006-01-02 15:04:05")
 	query := fmt.Sprintf(`
-		INSERT INTO m_branch_kode_bank(name, branch_code, regencies_code, regencies, office_type, created_at, update_at)
+		INSERT INTO vdapp_3.m_branch_kode_bank(name, branch_code, regencies_code, regencies, office_type, created_at, update_at)
 		VALUES('%s', '%s', '%s', '%s', '%s', TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS'))
 	`, escapeString(code.Name), escapeString(code.BranchCode), escapeString(code.RegenciesCode), escapeString(code.Regencies), escapeString(code.OfficeType), nowStr, nowStr)
 
@@ -58,7 +58,7 @@ func (r *branchCodeBankRepository) GetAll(ctx context.Context, bankName, search 
 		       NVL(created_at, SYSDATE) as created_at, 
 		       NVL(update_at, SYSDATE) as update_at,
 		       COUNT(*) OVER() as total_count
-		FROM m_branch_kode_bank
+		FROM vdapp_3.m_branch_kode_bank
 		WHERE 1=1
 	`
 
@@ -109,7 +109,7 @@ func (r *branchCodeBankRepository) GetAll(ctx context.Context, bankName, search 
 func (r *branchCodeBankRepository) FindByID(ctx context.Context, id int) (*domain.BranchCodeBank, error) {
 	query := fmt.Sprintf(`
 		SELECT id, name, branch_code, regencies_code, regencies, office_type, created_at, update_at
-		FROM m_branch_kode_bank
+		FROM vdapp_3.m_branch_kode_bank
 		WHERE id = %d
 	`, id)
 
@@ -132,7 +132,7 @@ func (r *branchCodeBankRepository) FindByID(ctx context.Context, id int) (*domai
 func (r *branchCodeBankRepository) Update(ctx context.Context, code *domain.BranchCodeBank) (*domain.BranchCodeBank, error) {
 	nowStr := time.Now().Format("2006-01-02 15:04:05")
 	query := fmt.Sprintf(`
-		UPDATE m_branch_kode_bank
+		UPDATE vdapp_3.m_branch_kode_bank
 		SET name = '%s', branch_code = '%s', regencies_code = '%s', regencies = '%s', office_type = '%s', update_at = TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS')
 		WHERE id = %d
 	`, escapeString(code.Name), escapeString(code.BranchCode), escapeString(code.RegenciesCode), escapeString(code.Regencies), escapeString(code.OfficeType), nowStr, code.ID)
@@ -146,7 +146,7 @@ func (r *branchCodeBankRepository) Update(ctx context.Context, code *domain.Bran
 }
 
 func (r *branchCodeBankRepository) Delete(ctx context.Context, id int) error {
-	query := fmt.Sprintf(`DELETE FROM m_branch_kode_bank WHERE id = %d`, id)
+	query := fmt.Sprintf(`DELETE FROM vdapp_3.m_branch_kode_bank WHERE id = %d`, id)
 	_, err := r.executeQuery(query)
 	return err
 }
@@ -176,7 +176,7 @@ func (r *branchCodeBankRepository) executeBatchInsert(batch []domain.BranchCodeB
 	for _, code := range batch {
 		nowStr := time.Now().Format("2006-01-02 15:04:05")
 		query := fmt.Sprintf(`
-			MERGE INTO m_branch_kode_bank t
+			MERGE INTO vdapp_3.m_branch_kode_bank t
 			USING (SELECT '%s' as name, '%s' as branch_code FROM dual) s
 			ON (t.name = s.name AND t.branch_code = s.branch_code)
 			WHEN MATCHED THEN
