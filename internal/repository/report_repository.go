@@ -94,14 +94,26 @@ func (r *reportRepository) GetPayBankReport(
 	defer resp.Body.Close()
 
 	var result struct {
-		Data []domain.PayBankReport `json:"data"`
+		Data []struct {
+			domain.PayBankReport
+			VolumeRaw json.Number `json:"volume"`
+		} `json:"data"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, 0, err
 	}
 
-	total := len(result.Data)
+	var data []domain.PayBankReport
+	for _, r := range result.Data {
+		item := r.PayBankReport
+		if vol, err := r.VolumeRaw.Int64(); err == nil {
+			item.Volume = vol
+		}
+		data = append(data, item)
+	}
 
-	return result.Data, total, nil
+	total := len(data)
+
+	return data, total, nil
 }
