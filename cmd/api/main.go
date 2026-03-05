@@ -1,7 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"log"
+	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -64,6 +68,31 @@ func main() {
 	r := gin.Default()
 
 	routes.RegisterRoutes(r, authHandler, regencyHandler, reportHandler, importHandler, branchBankHandler)
+
+	r.GET("/test-regencies", func(c *gin.Context) {
+		query := "SELECT * FROM vdapp_3.regencies"
+		body, _ := json.Marshal(map[string]string{"qstr": query})
+		resp, err := http.Post(queryServiceURL, "application/json", bytes.NewBuffer(body))
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		b, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode != http.StatusOK {
+			c.JSON(resp.StatusCode, gin.H{"query_service_error": string(b)})
+			return
+		}
+
+		var result interface{}
+		if err := json.Unmarshal(b, &result); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "JSON Unmarshal failed", "raw_response": string(b)})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": result})
+	})
 
 	log.Println("server running on :8080")
 	log.Fatal(r.Run(":8080"))
