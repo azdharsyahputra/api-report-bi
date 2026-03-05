@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"portal-report-bi/internal/domain"
+	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -54,73 +56,121 @@ func (r *reportRepository) GetPayBankReport(
 	limit, offset int,
 ) ([]domain.PayBankReport, int, error) {
 
-	query := fmt.Sprintf(`
-		WITH RawData AS (
-			SELECT
-				tt.nom AS kode_produk,
-				su.full_name AS pengirim,
-				TO_CHAR(r.id) AS prefix_pengirim,
-				r.name AS kota_pengirim,
-				REGEXP_SUBSTR(tt.te_transid, 'NO\. REK\s*:\s*([^|]+)', 1, 1, NULL, 1) AS no_rek,
-				REGEXP_SUBSTR(tt.te_transid, 'NAMA\s*:\s*([^|]+)', 1, 1, NULL, 1) AS nama_penerima,
-				REGEXP_SUBSTR(tt.te_transid, 'BANK\s*:\s*([^|]+)', 1, 1, NULL, 1) AS bank_tujuan,
-				REGEXP_SUBSTR(tt.te_transid, 'JUMLAH\s*:\s*Rp\.\s*([^|]+)', 1, 1, NULL, 1) AS jumlah
-			FROM vdapp_3.t_trans tt
-			LEFT JOIN vdapp_3.t_store_user su
-				ON tt.user_name = su.user_name
-			LEFT JOIN vdapp_3.regencies r
-				ON su.kode_kota = r.id
-			WHERE tt.nom = 'PAYBANK'
-			AND tt.trans_stat = 200
-			AND tt.time_start BETWEEN TO_DATE('%s', 'yyyymmdd')
-								  AND TO_DATE('%s', 'yyyymmdd') + 1
-		),
-		GroupedData AS (
-			SELECT
-				kode_produk, pengirim, prefix_pengirim, kota_pengirim, no_rek, nama_penerima, bank_tujuan, jumlah, COUNT(*) AS volume
-			FROM RawData
-			GROUP BY kode_produk, pengirim, prefix_pengirim, kota_pengirim, no_rek, nama_penerima, bank_tujuan, jumlah
-		)
-		SELECT 
-			kode_produk, pengirim, prefix_pengirim, kota_pengirim, no_rek, nama_penerima, bank_tujuan, jumlah, volume,
-			COUNT(*) OVER() AS total_count
-		FROM GroupedData
-		ORDER BY volume DESC
-	`, startDate, endDate)
+	query := fmt.Sprintf(`SELECT
+		tt.nom AS kode_produk,
+		su.full_name AS pengirim,
+		TO_CHAR(r.id) AS prefix_pengirim,
+		r.name AS kota_pengirim,
+		tt.te_transid
+	FROM vdapp_3.t_trans tt
+	LEFT JOIN vdapp_3.t_store_user su ON tt.user_name = su.user_name
+	LEFT JOIN vdapp_3.regencies r ON su.kode_kota = r.id
+	WHERE tt.nom = 'PAYBANK' AND tt.trans_stat = 200
+	AND tt.time_start BETWEEN TO_DATE('%s', 'yyyymmdd') AND TO_DATE('%s', 'yyyymmdd') + 1`, startDate, endDate)
 
 	query = strings.ReplaceAll(query, "\n", " ")
 	query = strings.ReplaceAll(query, "\t", " ")
-
-	if limit > 0 {
-		query += fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
-	}
 
 	respBody, err := r.executeQuery(query)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	var result struct {
-		Data []struct {
-			domain.PayBankReport
-			VolumeRaw json.Number `json:"volume"`
-		} `json:"data"`
+	var rawRows []struct {
+		KodeProduk     string `json:"kode_produk"`
+		Pengirim       string `json:"pengirim"`
+		PrefixPengirim string `json:"prefix_pengirim"`
+		KotaPengirim   string `json:"kota_pengirim"`
+		TeTransid      string `json:"te_transid"`
 	}
 
-	if err := json.Unmarshal(respBody, &result); err != nil {
+	if err := json.Unmarshal(respBody, &rawRows); err != nil {
 		return nil, 0, err
 	}
 
-	var data []domain.PayBankReport
-	for _, r := range result.Data {
-		item := r.PayBankReport
-		if vol, err := r.VolumeRaw.Int64(); err == nil {
-			item.Volume = vol
-		}
-		data = append(data, item)
+	// Go-based regex parsing instead of Oracle REGEXP_SUBSTR
+	reNoRek := regexp.MustCompile(`NO\. REK\s*:\s*([^|]+)`)
+	reNama := regexp.MustCompile(`NAMA\s*:\s*([^|]+)`)
+	reBank := regexp.MustCompile(`BANK\s*:\s*([^|]+)`)
+	reJumlah := regexp.MustCompile(`JUMLAH\s*:\s*Rp\.\s*([^|]+)`)
+
+	type reportKey struct {
+		KodeProduk     string
+		Pengirim       string
+		PrefixPengirim string
+		KotaPengirim   string
+		NoRek          string
+		NamaPenerima   string
+		BankTujuan     string
+		Jumlah         string
 	}
 
+	groupedData := make(map[reportKey]int64)
+
+	for _, row := range rawRows {
+		transid := row.TeTransid
+		var noRek, namaPenerima, bankTujuan, jumlah string
+
+		if match := reNoRek.FindStringSubmatch(transid); len(match) > 1 {
+			noRek = strings.TrimSpace(match[1])
+		}
+		if match := reNama.FindStringSubmatch(transid); len(match) > 1 {
+			namaPenerima = strings.TrimSpace(match[1])
+		}
+		if match := reBank.FindStringSubmatch(transid); len(match) > 1 {
+			bankTujuan = strings.TrimSpace(match[1])
+		}
+		if match := reJumlah.FindStringSubmatch(transid); len(match) > 1 {
+			jumlah = strings.TrimSpace(match[1])
+		}
+
+		key := reportKey{
+			KodeProduk:     row.KodeProduk,
+			Pengirim:       row.Pengirim,
+			PrefixPengirim: row.PrefixPengirim,
+			KotaPengirim:   row.KotaPengirim,
+			NoRek:          noRek,
+			NamaPenerima:   namaPenerima,
+			BankTujuan:     bankTujuan,
+			Jumlah:         jumlah,
+		}
+		groupedData[key]++
+	}
+
+	var data []domain.PayBankReport
+	for key, vol := range groupedData {
+		data = append(data, domain.PayBankReport{
+			KodeProduk:     key.KodeProduk,
+			Pengirim:       key.Pengirim,
+			PrefixPengirim: key.PrefixPengirim,
+			KotaPengirim:   key.KotaPengirim,
+			NoRek:          key.NoRek,
+			NamaPenerima:   key.NamaPenerima,
+			BankTujuan:     key.BankTujuan,
+			Jumlah:         key.Jumlah,
+			Volume:         vol,
+		})
+	}
+
+	// Manual OrderBy Volume DESC
+	sort.Slice(data, func(i, j int) bool {
+		return data[i].Volume > data[j].Volume
+	})
+
 	total := len(data)
+
+	// Manual Pagination
+	if limit > 0 {
+		if offset >= total {
+			data = []domain.PayBankReport{}
+		} else {
+			end := offset + limit
+			if end > total {
+				end = total
+			}
+			data = data[offset:end]
+		}
+	}
 
 	return data, total, nil
 }
