@@ -94,38 +94,6 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"data": result})
 	})
 
-	r.POST("/debug-query", func(c *gin.Context) {
-		var req struct {
-			Query string `json:"query"`
-		}
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "parse error: " + err.Error()})
-			return
-		}
-
-		body, _ := json.Marshal(map[string]string{"qstr": req.Query})
-		resp, err := http.Post(queryServiceURL, "application/json", bytes.NewBuffer(body))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		defer resp.Body.Close()
-
-		b, _ := io.ReadAll(resp.Body)
-		if resp.StatusCode != http.StatusOK {
-			c.JSON(resp.StatusCode, gin.H{"query_service_error": string(b)})
-			return
-		}
-
-		var result interface{}
-		if err := json.Unmarshal(b, &result); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "JSON Unmarshal failed", "raw_response": string(b)})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{"data": result})
-	})
-
 	log.Println("server running on :8080")
 	log.Fatal(r.Run(":8080"))
 }

@@ -76,17 +76,20 @@ func (r *reportRepository) GetPayBankReport(
 		return nil, 0, err
 	}
 
-	var rawRows []struct {
-		KodeProduk     string `json:"kode_produk"`
-		Pengirim       string `json:"pengirim"`
-		PrefixPengirim string `json:"prefix_pengirim"`
-		KotaPengirim   string `json:"kota_pengirim"`
-		TeTransid      string `json:"te_transid"`
+	var apiResponse struct {
+		Data []struct {
+			KodeProduk     string `json:"kode_produk"`
+			Pengirim       string `json:"pengirim"`
+			PrefixPengirim string `json:"prefix_pengirim"`
+			KotaPengirim   string `json:"kota_pengirim"`
+			TeTransid      string `json:"te_transid"`
+		} `json:"data"`
 	}
 
-	if err := json.Unmarshal(respBody, &rawRows); err != nil {
+	if err := json.Unmarshal(respBody, &apiResponse); err != nil {
 		return nil, 0, err
 	}
+	rawRows := apiResponse.Data
 
 	// Go-based regex parsing instead of Oracle REGEXP_SUBSTR
 	reNoRek := regexp.MustCompile(`NO\. REK\s*:\s*([^|]+)`)
