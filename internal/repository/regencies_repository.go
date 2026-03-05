@@ -62,12 +62,14 @@ func (r *regencyRepository) Get(ctx context.Context) ([]domain.Regency, error) {
 		return nil, err
 	}
 
-	var result []domain.Regency
-	if err := json.Unmarshal(respBody, &result); err != nil {
+	var apiResp struct {
+		Data []domain.Regency `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
 		return nil, err
 	}
 
-	return result, nil
+	return apiResp.Data, nil
 }
 func (r *regencyRepository) FindByID(ctx context.Context, id int) (*domain.Regency, error) {
 	query := fmt.Sprintf(`
@@ -81,16 +83,18 @@ func (r *regencyRepository) FindByID(ctx context.Context, id int) (*domain.Regen
 		return nil, err
 	}
 
-	var result []domain.Regency
-	if err := json.Unmarshal(respBody, &result); err != nil {
+	var apiResp struct {
+		Data []domain.Regency `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
 		return nil, err
 	}
 
-	if len(result) == 0 {
+	if len(apiResp.Data) == 0 {
 		return nil, domain.ErrRegencyNotFound
 	}
 
-	return &result[0], nil
+	return &apiResp.Data[0], nil
 }
 
 func (r *regencyRepository) Update(ctx context.Context, regency *domain.Regency) (*domain.Regency, error) {

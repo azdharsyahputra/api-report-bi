@@ -87,18 +87,20 @@ func (r *branchCodeBankRepository) GetAll(ctx context.Context, bankName, search 
 		return nil, 0, err
 	}
 
-	var rawResults []struct {
-		domain.BranchCodeBank
-		TotalCount int `json:"total_count"`
+	var apiResp struct {
+		Data []struct {
+			domain.BranchCodeBank
+			TotalCount int `json:"total_count"`
+		} `json:"data"`
 	}
 
-	if err := json.Unmarshal(respBody, &rawResults); err != nil {
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
 		return nil, 0, err
 	}
 
 	var results []domain.BranchCodeBank
 	var totalCount int
-	for _, b := range rawResults {
+	for _, b := range apiResp.Data {
 		results = append(results, b.BranchCodeBank)
 		totalCount = b.TotalCount
 	}
@@ -118,15 +120,17 @@ func (r *branchCodeBankRepository) FindByID(ctx context.Context, id int) (*domai
 		return nil, err
 	}
 
-	var results []domain.BranchCodeBank
-	if err := json.Unmarshal(respBody, &results); err != nil {
+	var apiResp struct {
+		Data []domain.BranchCodeBank `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &apiResp); err != nil {
 		return nil, err
 	}
 
-	if len(results) == 0 {
+	if len(apiResp.Data) == 0 {
 		return nil, nil
 	}
-	return &results[0], nil
+	return &apiResp.Data[0], nil
 }
 
 func (r *branchCodeBankRepository) Update(ctx context.Context, code *domain.BranchCodeBank) (*domain.BranchCodeBank, error) {
