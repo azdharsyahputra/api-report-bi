@@ -1,19 +1,46 @@
 package repository
 
 import (
+	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"portal-report-bi/internal/domain"
 )
 
 type reportRepository struct {
-	db *sql.DB
+	queryServiceURL string
 }
 
-func NewReportRepository(db *sql.DB) domain.ReportRepository {
-	return &reportRepository{db: db}
+func NewReportRepository(queryServiceURL string) domain.ReportRepository {
+	return &reportRepository{queryServiceURL: queryServiceURL}
+}
+
+func (r *reportRepository) executeQuery(query string) ([]byte, error) {
+	body := map[string]string{
+		"qstr": query,
+	}
+
+	b, _ := json.Marshal(body)
+
+	resp, err := http.Post(
+		r.queryServiceURL,
+		"application/json",
+		bytes.NewBuffer(b),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("query service error: %s", string(bodyBytes))
+	}
+
+	return io.ReadAll(resp.Body)
 }
 
 func (r *reportRepository) GetReport(ctx context.Context, report []domain.Report) error {
@@ -87,11 +114,10 @@ func (r *reportRepository) GetPayBankReport(
 		query += fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
 	}
 
-	resp, err := ExecuteQuery(ctx, query)
+	respBody, err := r.executeQuery(query)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer resp.Body.Close()
 
 	var result struct {
 		Data []struct {
@@ -100,7 +126,7 @@ func (r *reportRepository) GetPayBankReport(
 		} `json:"data"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, 0, err
 	}
 

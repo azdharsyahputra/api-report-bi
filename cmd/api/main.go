@@ -23,12 +23,15 @@ func main() {
 		panic(err)
 	}
 
-	db := config.InitDB()
+	queryServiceURL := os.Getenv("QUERY_SERVICE_URL")
+	if queryServiceURL == "" {
+		log.Fatal("QUERY_SERVICE_URL is required in .env file")
+	}
 
 	logger := config.InitLogger()
 	defer logger.Sync()
 
-	regencyRepo := repository.NewRegencyRepository(db)
+	regencyRepo := repository.NewRegencyRepository(queryServiceURL)
 
 	regencyAPIURL := os.Getenv("REGENCY_API_URL")
 	if regencyAPIURL == "" {
@@ -44,8 +47,8 @@ func main() {
 	)
 
 	excelParser := parser.NewExcelParser()
-	branchRepo := repository.NewBranchCodeBankRepository(db)
-	reportRepo := repository.NewReportRepository(db)
+	branchRepo := repository.NewBranchCodeBankRepository(queryServiceURL)
+	reportRepo := repository.NewReportRepository(queryServiceURL)
 	reportService := service.NewReportService(reportRepo, branchRepo)
 	reportHandler := handler.NewReportHandler(reportService, logger)
 

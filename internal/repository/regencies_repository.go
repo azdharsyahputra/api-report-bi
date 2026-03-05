@@ -1,34 +1,53 @@
 package repository
 
 import (
+	"bytes"
 	"context"
-	"database/sql"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
 
 	"portal-report-bi/internal/domain"
 )
 
 type regencyRepository struct {
-	db *sql.DB
+	queryServiceURL string
 }
 
-func NewRegencyRepository(db *sql.DB) domain.RegencyRepository {
-	return &regencyRepository{db: db}
+func NewRegencyRepository(queryServiceURL string) domain.RegencyRepository {
+	return &regencyRepository{queryServiceURL: queryServiceURL}
+}
+
+func (r *regencyRepository) executeQuery(query string) ([]byte, error) {
+	body := map[string]string{
+		"qstr": query,
+	}
+	b, _ := json.Marshal(body)
+	resp, err := http.Post(r.queryServiceURL, "application/json", bytes.NewBuffer(b))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("query service error: %s", string(bodyBytes))
+	}
+	return io.ReadAll(resp.Body)
+}
+
+func escapeString(s string) string {
+	return strings.ReplaceAll(s, "'", "''")
 }
 
 func (r *regencyRepository) Insert(ctx context.Context, regency *domain.Regency) error {
-
-	query := `
+	query := fmt.Sprintf(`
 		INSERT INTO regencies (bi_id, regency_name)
-		VALUES (:1, :2)
-	`
+		VALUES ('%s', '%s')
+	`, escapeString(regency.BIID), escapeString(regency.RegencyName))
 
-	_, err := r.db.ExecContext(
-		ctx,
-		query,
-		regency.BIID,
-		regency.RegencyName,
-	)
-
+	_, err := r.executeQuery(query)
 	return err
 }
 
@@ -38,119 +57,74 @@ func (r *regencyRepository) Get(ctx context.Context) ([]domain.Regency, error) {
 		FROM regencies
 	`
 
-	rows, err := r.db.QueryContext(ctx, query)
+	respBody, err := r.executeQuery(query)
 	if err != nil {
 		return nil, err
 	}
 
-	defer rows.Close()
-
-	var regencies []domain.Regency
-
-	for rows.Next() {
-		var regency domain.Regency
-
-		err := rows.Scan(
-			&regency.BIID,
-			&regency.RegencyName,
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		regencies = append(regencies, regency)
-	}
-
-	if err := rows.Err(); err != nil {
+	var result []domain.Regency
+	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, err
 	}
 
-	return regencies, nil
+	return result, nil
 }
 func (r *regencyRepository) FindByID(ctx context.Context, id int) (*domain.Regency, error) {
-
-	query := `
+	query := fmt.Sprintf(`
 		SELECT bi_id, regency_name
 		FROM regencies
-		WHERE id = :1
-	`
+		WHERE id = %d
+	`, id)
 
-	row := r.db.QueryRowContext(ctx, query, id)
-
-	var regency domain.Regency
-
-	err := row.Scan(
-		&regency.BIID,
-		&regency.RegencyName,
-	)
-
+	respBody, err := r.executeQuery(query)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, domain.ErrRegencyNotFound
-		}
 		return nil, err
 	}
 
-	return &regency, nil
+	var result []domain.Regency
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, err
+	}
+
+	if len(result) == 0 {
+		return nil, domain.ErrRegencyNotFound
+	}
+
+	return &result[0], nil
 }
 
 func (r *regencyRepository) Update(ctx context.Context, regency *domain.Regency) (*domain.Regency, error) {
-	query := `
+	query := fmt.Sprintf(`
 		UPDATE regencies
-		SET regency_name = :1
-		WHERE id = :2
-	`
-	result, err := r.db.ExecContext(
-		ctx,
-		query,
-		regency.RegencyName,
-		regency.ID,
-	)
+		SET regency_name = '%s'
+		WHERE id = %d
+	`, escapeString(regency.RegencyName), regency.ID)
+
+	_, err := r.executeQuery(query)
 	if err != nil {
 		return nil, err
-	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return nil, err
-	}
-
-	if rows == 0 {
-		return nil, domain.ErrRegencyNotFound
 	}
 
 	return regency, nil
 }
 
 func (r *regencyRepository) Delete(ctx context.Context, id int) error {
-	query := `
+	query := fmt.Sprintf(`
 		DELETE FROM regencies
-		WHERE id = :1
-	`
-	result, err := r.db.ExecContext(ctx, query, id)
-	if err != nil {
-		return err
-	}
+		WHERE id = %d
+	`, id)
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rows == 0 {
-		return domain.ErrRegencyNotFound
-	}
-
-	return nil
+	_, err := r.executeQuery(query)
+	return err
 }
 
 func (r *regencyRepository) UpdateBIIDByName(ctx context.Context, name string, biid string) error {
-	query := `
+	query := fmt.Sprintf(`
 		UPDATE regencies
-		SET bi_id = :1
-		WHERE UPPER(TRIM(regency_name)) = UPPER(TRIM(:2))
-	`
+		SET bi_id = '%s'
+		WHERE UPPER(TRIM(regency_name)) = UPPER(TRIM('%s'))
+	`, escapeString(biid), escapeString(name))
 
-	_, err := r.db.ExecContext(ctx, query, biid, name)
+	_, err := r.executeQuery(query)
 	return err
 }

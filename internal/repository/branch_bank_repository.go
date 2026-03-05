@@ -1,39 +1,49 @@
 package repository
 
 import (
+	"bytes"
 	"context"
-	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"portal-report-bi/internal/domain"
 	"time"
 )
 
 type branchCodeBankRepository struct {
-	db *sql.DB
+	queryServiceURL string
 }
 
-func NewBranchCodeBankRepository(db *sql.DB) domain.BranchCodeBankRepository {
-	return &branchCodeBankRepository{db: db}
+func NewBranchCodeBankRepository(queryServiceURL string) domain.BranchCodeBankRepository {
+	return &branchCodeBankRepository{queryServiceURL: queryServiceURL}
+}
+
+func (r *branchCodeBankRepository) executeQuery(query string) ([]byte, error) {
+	body := map[string]string{
+		"qstr": query,
+	}
+	b, _ := json.Marshal(body)
+	resp, err := http.Post(r.queryServiceURL, "application/json", bytes.NewBuffer(b))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("query service error: %s", string(bodyBytes))
+	}
+	return io.ReadAll(resp.Body)
 }
 
 func (r *branchCodeBankRepository) Insert(ctx context.Context, code *domain.BranchCodeBank) error {
-	query := `
+	nowStr := time.Now().Format("2006-01-02 15:04:05")
+	query := fmt.Sprintf(`
 		INSERT INTO m_branch_kode_bank(name, branch_code, regencies_code, regencies, office_type, created_at, update_at)
-		VALUES(:1, :2, :3, :4, :5, :6, :7)
-	`
+		VALUES('%s', '%s', '%s', '%s', '%s', TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS'))
+	`, escapeString(code.Name), escapeString(code.BranchCode), escapeString(code.RegenciesCode), escapeString(code.Regencies), escapeString(code.OfficeType), nowStr, nowStr)
 
-	_, err := r.db.ExecContext(
-		ctx,
-		query,
-		code.Name,
-		code.BranchCode,
-		code.RegenciesCode,
-		code.Regencies,
-		code.OfficeType,
-		time.Now(),
-		time.Now(),
-	)
-
+	_, err := r.executeQuery(query)
 	return err
 }
 
@@ -51,124 +61,100 @@ func (r *branchCodeBankRepository) GetAll(ctx context.Context, bankName, search 
 		FROM m_branch_kode_bank
 		WHERE 1=1
 	`
-	args := []interface{}{}
-	argCount := 0
 
-	// Filter spesifik Nama Bank
 	if bankName != "" {
-		argCount++
-		query += fmt.Sprintf(" AND UPPER(name) = UPPER(:%d)", argCount)
-		args = append(args, bankName)
+		query += fmt.Sprintf(" AND UPPER(name) = UPPER('%s')", escapeString(bankName))
 	}
 
-	// Search keyword di kolom lain
 	if search != "" {
-		argCount++
+		pattern := escapeString("%" + search + "%")
 		query += fmt.Sprintf(` 
 			AND (
-				UPPER(regencies) LIKE UPPER(:%d) OR 
-				UPPER(office_type) LIKE UPPER(:%d) OR
-				UPPER(name) LIKE UPPER(:%d)
-			)`, argCount, argCount+1, argCount+2)
-
-		pattern := "%" + search + "%"
-		args = append(args, pattern, pattern, pattern)
-		argCount += 3
+				UPPER(regencies) LIKE UPPER('%s') OR 
+				UPPER(office_type) LIKE UPPER('%s') OR
+				UPPER(name) LIKE UPPER('%s')
+			)`, pattern, pattern, pattern)
 	}
 
-	// Oracle pagination 12c+ requires ORDER BY to be defined for OFFSET to work reliably
 	query += " ORDER BY name ASC, id ASC"
 
 	if limit > 0 {
-		query += fmt.Sprintf(" OFFSET :%d ROWS FETCH NEXT :%d ROWS ONLY", argCount+1, argCount+2)
-		args = append(args, offset, limit)
-		argCount += 2
+		query += fmt.Sprintf(" OFFSET %d ROWS FETCH NEXT %d ROWS ONLY", offset, limit)
 	}
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	respBody, err := r.executeQuery(query)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
+
+	var rawResults []struct {
+		domain.BranchCodeBank
+		TotalCount int `json:"total_count"`
+	}
+
+	if err := json.Unmarshal(respBody, &rawResults); err != nil {
+		return nil, 0, err
+	}
 
 	var results []domain.BranchCodeBank
 	var totalCount int
-	for rows.Next() {
-		var b domain.BranchCodeBank
-		err := rows.Scan(
-			&b.ID, &b.Name, &b.BranchCode, &b.RegenciesCode, &b.Regencies, &b.OfficeType, &b.CreatedAt, &b.UpdateAt,
-			&totalCount,
-		)
-		if err != nil {
-			return nil, 0, err
-		}
-		results = append(results, b)
+	for _, b := range rawResults {
+		results = append(results, b.BranchCodeBank)
+		totalCount = b.TotalCount
 	}
 
 	return results, totalCount, nil
 }
 
 func (r *branchCodeBankRepository) FindByID(ctx context.Context, id int) (*domain.BranchCodeBank, error) {
-	query := `
+	query := fmt.Sprintf(`
 		SELECT id, name, branch_code, regencies_code, regencies, office_type, created_at, update_at
 		FROM m_branch_kode_bank
-		WHERE id = :1
-	`
-	row := r.db.QueryRowContext(ctx, query, id)
-	var b domain.BranchCodeBank
-	err := row.Scan(&b.ID, &b.Name, &b.BranchCode, &b.RegenciesCode, &b.Regencies, &b.OfficeType, &b.CreatedAt, &b.UpdateAt)
+		WHERE id = %d
+	`, id)
+
+	respBody, err := r.executeQuery(query)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, nil
-		}
 		return nil, err
 	}
-	return &b, nil
+
+	var results []domain.BranchCodeBank
+	if err := json.Unmarshal(respBody, &results); err != nil {
+		return nil, err
+	}
+
+	if len(results) == 0 {
+		return nil, nil
+	}
+	return &results[0], nil
 }
 
 func (r *branchCodeBankRepository) Update(ctx context.Context, code *domain.BranchCodeBank) (*domain.BranchCodeBank, error) {
-	query := `
+	nowStr := time.Now().Format("2006-01-02 15:04:05")
+	query := fmt.Sprintf(`
 		UPDATE m_branch_kode_bank
-		SET name = :1, branch_code = :2, regencies_code = :3, regencies = :4, office_type = :5, update_at = :6
-		WHERE id = :7
-	`
-	res, err := r.db.ExecContext(ctx, query, code.Name, code.BranchCode, code.RegenciesCode, code.Regencies, code.OfficeType, time.Now(), code.ID)
+		SET name = '%s', branch_code = '%s', regencies_code = '%s', regencies = '%s', office_type = '%s', update_at = TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS')
+		WHERE id = %d
+	`, escapeString(code.Name), escapeString(code.BranchCode), escapeString(code.RegenciesCode), escapeString(code.Regencies), escapeString(code.OfficeType), nowStr, code.ID)
+
+	_, err := r.executeQuery(query)
 	if err != nil {
 		return nil, err
-	}
-
-	count, _ := res.RowsAffected()
-	if count == 0 {
-		return nil, domain.ErrInvalidId
 	}
 
 	return code, nil
 }
 
 func (r *branchCodeBankRepository) Delete(ctx context.Context, id int) error {
-	query := `DELETE FROM m_branch_kode_bank WHERE id = :1`
-	res, err := r.db.ExecContext(ctx, query, id)
-	if err != nil {
-		return err
-	}
-
-	count, _ := res.RowsAffected()
-	if count == 0 {
-		return domain.ErrInvalidId
-	}
-	return nil
+	query := fmt.Sprintf(`DELETE FROM m_branch_kode_bank WHERE id = %d`, id)
+	_, err := r.executeQuery(query)
+	return err
 }
 
 func (r *branchCodeBankRepository) BulkInsert(ctx context.Context, codes []domain.BranchCodeBank) error {
 	if len(codes) == 0 {
 		return nil
 	}
-
-	tx, err := r.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
 
 	batchSize := 500
 	for i := 0; i < len(codes); i += batchSize {
@@ -178,35 +164,34 @@ func (r *branchCodeBankRepository) BulkInsert(ctx context.Context, codes []domai
 		}
 		batch := codes[i:end]
 
-		if err := r.executeBatchInsert(ctx, tx, batch); err != nil {
+		if err := r.executeBatchInsert(batch); err != nil {
 			return err
 		}
 	}
 
-	return tx.Commit()
+	return nil
 }
 
-func (r *branchCodeBankRepository) executeBatchInsert(ctx context.Context, tx *sql.Tx, batch []domain.BranchCodeBank) error {
+func (r *branchCodeBankRepository) executeBatchInsert(batch []domain.BranchCodeBank) error {
 	for _, code := range batch {
-
-		query := `
+		nowStr := time.Now().Format("2006-01-02 15:04:05")
+		query := fmt.Sprintf(`
 			MERGE INTO m_branch_kode_bank t
-			USING (SELECT :1 as name, :2 as branch_code FROM dual) s
+			USING (SELECT '%s' as name, '%s' as branch_code FROM dual) s
 			ON (t.name = s.name AND t.branch_code = s.branch_code)
 			WHEN MATCHED THEN
-				UPDATE SET t.regencies_code = :3, t.regencies = :4, t.office_type = :5, t.update_at = :6
+				UPDATE SET t.regencies_code = '%s', t.regencies = '%s', t.office_type = '%s', t.update_at = TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS')
 			WHEN NOT MATCHED THEN
 				INSERT (name, branch_code, regencies_code, regencies, office_type, created_at, update_at)
-				VALUES (:7, :8, :9, :10, :11, :12, :13)
-		`
-		now := time.Now()
-		_, err := tx.ExecContext(ctx, query,
-			code.Name, code.BranchCode,
-			code.RegenciesCode, code.Regencies, code.OfficeType, now,
-			code.Name, code.BranchCode, code.RegenciesCode, code.Regencies, code.OfficeType, now, now,
+				VALUES ('%s', '%s', '%s', '%s', '%s', TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS'), TO_DATE('%s', 'YYYY-MM-DD HH24:MI:SS'))
+		`,
+			escapeString(code.Name), escapeString(code.BranchCode),
+			escapeString(code.RegenciesCode), escapeString(code.Regencies), escapeString(code.OfficeType), nowStr,
+			escapeString(code.Name), escapeString(code.BranchCode), escapeString(code.RegenciesCode), escapeString(code.Regencies), escapeString(code.OfficeType), nowStr, nowStr,
 		)
-		if err != nil {
 
+		_, err := r.executeQuery(query)
+		if err != nil {
 			continue
 		}
 	}
