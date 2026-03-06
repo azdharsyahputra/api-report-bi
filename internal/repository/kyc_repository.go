@@ -49,11 +49,19 @@ func (r *kycRepository) executeQuery(query string) ([]byte, error) {
 func (r *kycRepository) GetAllKyc(ctx context.Context) ([]domain.Kyc, error) {
 	query := `
 		SELECT 
-			NVL(user_name, ' ') as user_name, 
-			NVL(full_name, ' ') as full_name, 
-			NVL(upload_type, ' ') as upload_type, 
-			NVL(file_name, ' ') as file_name
-		FROM kyc
+			tsu.user_name, 
+			tsu.full_name, 
+			tsu.address1, 
+			tsu.address2, 
+			tsu.zip, 
+			tsu.kode_kota, 
+			tsu.kode_prov, 
+			tsu.email, 
+			tku.upload_type, 
+			tku.file_name 
+		FROM t_store_user tsu 
+		INNER JOIN t_kyc_upload tku ON tsu.user_name = tku.user_name 
+		WHERE tsu.is_kyc_approved = 1
 	`
 
 	respBody, err := r.executeQuery(query)
