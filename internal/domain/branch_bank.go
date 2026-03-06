@@ -6,14 +6,14 @@ import (
 )
 
 type BranchCodeBank struct {
-	ID            int64     `json:"id"`
-	Name          string    `json:"name"`
-	BranchCode    string    `json:"branch_code"`
-	RegenciesCode string    `json:"regencies_code"`
-	Regencies     string    `json:"regencies"`
-	OfficeType    string    `json:"office_type"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdateAt      time.Time `json:"update_at"`
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	BranchCode    string `json:"branch_code"`
+	RegenciesCode string `json:"regencies_code"`
+	Regencies     string `json:"regencies"`
+	OfficeType    string `json:"office_type"`
+	CreatedAt     string `json:"created_at"`
+	UpdateAt      string `json:"update_at"`
 }
 
 type UpdateBranchCodeBankRequest struct {

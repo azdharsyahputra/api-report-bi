@@ -158,8 +158,8 @@ func (p *excelParser) extractTable(rows [][]string, startRow, startCol int, tabl
 			RegenciesCode: regencyCode,
 			Regencies:     regencyName,
 			OfficeType:    officeType,
-			CreatedAt:     time.Now(),
-			UpdateAt:      time.Now(),
+			CreatedAt:     time.Now().Format("2006-01-02 15:04:05"),
+			UpdateAt:      time.Now().Format("2006-01-02 15:04:05"),
 		})
 	}
 
