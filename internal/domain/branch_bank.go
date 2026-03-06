@@ -6,7 +6,7 @@ import (
 )
 
 type BranchCodeBank struct {
-	ID            int64  `json:"id"`
+	ID            int64  `json:"id,string"`
 	Name          string `json:"name"`
 	BranchCode    string `json:"branch_code"`
 	RegenciesCode string `json:"regencies_code"`

@@ -189,8 +189,15 @@ func (r *branchCodeBankRepository) GetAll(ctx context.Context, bankName, search 
 
 	var apiResp struct {
 		Data []struct {
-			domain.BranchCodeBank
-			TotalCount int `json:"total_count"`
+			ID            json.Number `json:"id"`
+			Name          string      `json:"name"`
+			BranchCode    string      `json:"branch_code"`
+			RegenciesCode string      `json:"regencies_code"`
+			Regencies     string      `json:"regencies"`
+			OfficeType    string      `json:"office_type"`
+			CreatedAt     string      `json:"created_at"`
+			UpdateAt      string      `json:"update_at"`
+			TotalCount    json.Number `json:"total_count"`
 		} `json:"data"`
 	}
 
@@ -202,8 +209,20 @@ func (r *branchCodeBankRepository) GetAll(ctx context.Context, bankName, search 
 	var totalCount int
 
 	for _, b := range apiResp.Data {
-		results = append(results, b.BranchCodeBank)
-		totalCount = b.TotalCount
+		id, _ := b.ID.Int64()
+		tc, _ := b.TotalCount.Int64()
+		totalCount = int(tc)
+
+		results = append(results, domain.BranchCodeBank{
+			ID:            id,
+			Name:          b.Name,
+			BranchCode:    b.BranchCode,
+			RegenciesCode: b.RegenciesCode,
+			Regencies:     b.Regencies,
+			OfficeType:    b.OfficeType,
+			CreatedAt:     b.CreatedAt,
+			UpdateAt:      b.UpdateAt,
+		})
 	}
 
 	return results, totalCount, nil
@@ -223,7 +242,16 @@ func (r *branchCodeBankRepository) FindByID(ctx context.Context, id int) (*domai
 	}
 
 	var apiResp struct {
-		Data []domain.BranchCodeBank `json:"data"`
+		Data []struct {
+			ID            json.Number `json:"id"`
+			Name          string      `json:"name"`
+			BranchCode    string      `json:"branch_code"`
+			RegenciesCode string      `json:"regencies_code"`
+			Regencies     string      `json:"regencies"`
+			OfficeType    string      `json:"office_type"`
+			CreatedAt     string      `json:"created_at"`
+			UpdateAt      string      `json:"update_at"`
+		} `json:"data"`
 	}
 
 	if err := json.Unmarshal(respBody, &apiResp); err != nil {
@@ -234,7 +262,21 @@ func (r *branchCodeBankRepository) FindByID(ctx context.Context, id int) (*domai
 		return nil, nil
 	}
 
-	return &apiResp.Data[0], nil
+	raw := apiResp.Data[0]
+	idVal, _ := raw.ID.Int64()
+
+	result := &domain.BranchCodeBank{
+		ID:            idVal,
+		Name:          raw.Name,
+		BranchCode:    raw.BranchCode,
+		RegenciesCode: raw.RegenciesCode,
+		Regencies:     raw.Regencies,
+		OfficeType:    raw.OfficeType,
+		CreatedAt:     raw.CreatedAt,
+		UpdateAt:      raw.UpdateAt,
+	}
+
+	return result, nil
 }
 
 func (r *branchCodeBankRepository) Update(ctx context.Context, code *domain.BranchCodeBank) (*domain.BranchCodeBank, error) {
