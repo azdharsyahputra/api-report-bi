@@ -84,7 +84,22 @@ func (r *reportRepository) GetPayBankReport(
 	limit, offset int,
 ) ([]domain.PayBankReport, int, error) {
 
-	query := fmt.Sprintf("SELECT tt.nom AS kode_produk, su.full_name AS pengirim, TO_CHAR(r.id) AS prefix_pengirim, r.name AS kota_pengirim, tt.te_transid FROM vdapp_3.t_trans tt LEFT JOIN vdapp_3.t_store_user su ON tt.user_name = su.user_name LEFT JOIN vdapp_3.regencies r ON su.kode_kota = r.id WHERE tt.nom = 'PAYBANK' AND tt.trans_stat = 200 AND tt.time_start BETWEEN TO_DATE('%s','yyyymmdd') AND TO_DATE('%s','yyyymmdd') + 1", startDate, endDate)
+	query := fmt.Sprintf(`
+		SELECT tt.nom AS kode_produk,
+			su.full_name AS pengirim,
+			TO_CHAR(r.id) AS prefix_pengirim,
+			r.name AS kota_pengirim,
+			tt.te_transid
+		FROM vdapp_3.t_trans tt
+		LEFT JOIN vdapp_3.t_store_user su ON tt.user_name = su.user_name
+		LEFT JOIN vdapp_3.regencies r ON su.kode_kota = r.id
+		WHERE tt.nom = 'PAYBANK'
+		AND tt.trans_stat = 200
+		AND tt.time_start >= TO_DATE('%s','YYYYMMDD')
+		AND tt.time_start < TO_DATE('%s','YYYYMMDD')
+		`, startDate, endDate)
+
+	query = normalizeQuery(query)
 
 	fmt.Println("FINAL SQL:", query)
 
