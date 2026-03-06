@@ -134,7 +134,7 @@ func (r *reportRepository) GetPayBankReport(
 			bankTujuan = strings.TrimSpace(m[1])
 		}
 		if m := reJumlah.FindStringSubmatch(row.TeTransid); len(m) > 1 {
-			jumlah = strings.TrimSpace(m[1])
+			jumlah = strings.ReplaceAll(strings.TrimSpace(m[1]), ".", "")
 		}
 
 		key := reportKey{
