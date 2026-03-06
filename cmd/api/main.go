@@ -65,9 +65,13 @@ func main() {
 	branchBankService := service.NewBranchBankService(branchRepo)
 	branchBankHandler := handler.NewBranchBankHandler(branchBankService, logger)
 
+	kycRepo := repository.NewKycRepository(queryServiceURL)
+	kycService := service.NewKycService(kycRepo)
+	kycHandler := handler.NewKycHandler(kycService, logger)
+
 	r := gin.Default()
 
-	routes.RegisterRoutes(r, authHandler, regencyHandler, reportHandler, importHandler, branchBankHandler)
+	routes.RegisterRoutes(r, authHandler, regencyHandler, reportHandler, importHandler, branchBankHandler, kycHandler)
 
 	r.GET("/test-regencies", func(c *gin.Context) {
 		query := "SELECT * FROM vdapp_3.regencies"

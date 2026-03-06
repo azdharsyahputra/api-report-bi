@@ -14,6 +14,7 @@ func RegisterRoutes(
 	reportHandler *handler.ReportHandler,
 	importHandler *handler.ImportHandler,
 	branchBankHandler *handler.BranchBankHandler,
+	kycHandler *handler.KycHandler,
 ) {
 	// Enable CORS
 	r.Use(middleware.CORSMiddleware())
@@ -53,6 +54,11 @@ func RegisterRoutes(
 		{
 			branchBank.GET("", branchBankHandler.GetAll)
 			branchBank.PUT("/:id", branchBankHandler.Update)
+		}
+
+		kyc := protected.Group("/kyc")
+		{
+			kyc.GET("", kycHandler.GetAllKyc)
 		}
 	}
 }
