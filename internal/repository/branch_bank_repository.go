@@ -73,22 +73,30 @@ func (r *branchCodeBankRepository) Insert(ctx context.Context, code *domain.Bran
 
 func (r *branchCodeBankRepository) BulkInsert(ctx context.Context, codes []domain.BranchCodeBank) error {
 
-	if len(codes) == 0 {
-		return nil
+	workerCount := 10
+	jobs := make(chan domain.BranchCodeBank)
+	errChan := make(chan error, workerCount)
+
+	for w := 0; w < workerCount; w++ {
+		go func() {
+			for code := range jobs {
+				if err := r.Insert(ctx, &code); err != nil {
+					errChan <- err
+					return
+				}
+			}
+			errChan <- nil
+		}()
 	}
 
-	const batchSize = 300
+	for _, code := range codes {
+		jobs <- code
+	}
 
-	for i := 0; i < len(codes); i += batchSize {
+	close(jobs)
 
-		end := i + batchSize
-		if end > len(codes) {
-			end = len(codes)
-		}
-
-		batch := codes[i:end]
-
-		if err := r.executeBatchInsert(batch); err != nil {
+	for i := 0; i < workerCount; i++ {
+		if err := <-errChan; err != nil {
 			return err
 		}
 	}
