@@ -24,18 +24,24 @@ func NewReportService(repo domain.ReportRepository, branchRepo domain.BranchCode
 }
 
 func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate string, limit, offset int) ([]domain.PayBankReport, int, error) {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
-	/* No changes needed to s.branchRepo.GetAll call because it was already updated to take "", "", 0, 0 in a previous step, but let me check if I should use a specific value here */
+
+	fmt.Println("DEBUG SVC: Fetching PayBank report...")
 	reports, total, err := s.repo.GetPayBankReport(ctx, startDate, endDate, limit, offset)
 	if err != nil {
+		fmt.Println("DEBUG SVC: GetPayBankReport ERROR:", err)
 		return nil, 0, err
 	}
+	fmt.Println("DEBUG SVC: Got", len(reports), "report rows, total:", total)
 
+	fmt.Println("DEBUG SVC: Fetching branch bank data...")
 	branches, _, err := s.branchRepo.GetAll(ctx, "", "", 0, 0)
 	if err != nil {
+		fmt.Println("DEBUG SVC: branchRepo.GetAll ERROR:", err)
 		return nil, 0, err
 	}
+	fmt.Println("DEBUG SVC: Got", len(branches), "branches")
 
 	kotaToRegencyCode := make(map[string]string)
 	branchToRegencyCode := make(map[string]string)
