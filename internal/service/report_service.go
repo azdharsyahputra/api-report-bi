@@ -152,12 +152,48 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 		}
 	}
 
+	// Build prefix-to-dropdown map from Sheet3 (Column AA)
+	kabMap := make(map[string]string)
+	if sheet3Rows, err := f.GetRows("Sheet3"); err == nil {
+		for i, row := range sheet3Rows {
+			if i == 0 {
+				continue
+			}
+			if len(row) > 26 {
+				val := row[26] // AA is index 26
+				if len(val) >= 4 {
+					kabMap[val[:4]] = val
+				}
+			}
+		}
+	}
+
 	// Write report data starting at row 7
 	for i, r := range reports {
 		row := 7 + i
+
+		pengirimPrefix := s.padLeftZero(r.PrefixPengirim, 4)
+		pengirimDropdown := kabMap[pengirimPrefix]
+		if pengirimDropdown == "" && pengirimPrefix != "" && pengirimPrefix != "0000" {
+			pengirimDropdown = pengirimPrefix // Fallback if not found in template
+		}
+
+		penerimaPrefix := s.padLeftZero(r.PrefixPenerima, 4)
+		penerimaDropdown := kabMap[penerimaPrefix]
+		if penerimaDropdown == "" && penerimaPrefix != "" && penerimaPrefix != "0000" {
+			penerimaDropdown = penerimaPrefix
+		}
+
+		if pengirimPrefix == "0000" || pengirimDropdown == "" {
+			pengirimDropdown = ""
+		}
+		if penerimaPrefix == "0000" || penerimaDropdown == "" {
+			penerimaDropdown = ""
+		}
+
 		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), i+1)
-		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), s.padLeftZero(r.PrefixPengirim, 4))
-		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), s.padLeftZero(r.PrefixPenerima, 4))
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), pengirimDropdown)
+		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), penerimaDropdown)
 		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), strings.ToUpper(r.NamaPenerima))
 		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), strings.ToUpper(r.Pengirim))
 		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), r.Volume)
