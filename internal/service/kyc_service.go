@@ -13,6 +13,6 @@ func NewKycService(repo domain.KycRepository) *KycService {
 	return &KycService{repo: repo}
 }
 
-func (s *KycService) GetAllDataKyc(ctx context.Context, limit, offset int) ([]domain.Kyc, int, error) {
-	return s.repo.GetAllKyc(ctx, limit, offset)
+func (s *KycService) GetAllDataKyc(ctx context.Context, search string, limit, offset int) ([]domain.Kyc, int, error) {
+	return s.repo.GetAllKyc(ctx, search, limit, offset)
 }

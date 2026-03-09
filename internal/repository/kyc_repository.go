@@ -51,7 +51,7 @@ func (r *kycRepository) executeQuery(query string) ([]byte, error) {
 	return respBody, nil
 }
 
-func (r *kycRepository) GetAllKyc(ctx context.Context, limit, offset int) ([]domain.Kyc, int, error) {
+func (r *kycRepository) GetAllKyc(ctx context.Context, search string, limit, offset int) ([]domain.Kyc, int, error) {
 
 	query := `
 		SELECT 
@@ -89,14 +89,84 @@ func (r *kycRepository) GetAllKyc(ctx context.Context, limit, offset int) ([]dom
 	rawJSON = sanitizeWindowsPath(rawJSON)
 
 	var apiResp struct {
-		Data []domain.Kyc `json:"data"`
+		Data []struct {
+			UserName   string `json:"user_name"`
+			FullName   string `json:"full_name"`
+			Address1   string `json:"address1"`
+			Address2   string `json:"address2"`
+			Zip        string `json:"zip"`
+			KodeKota   string `json:"kode_kota"`
+			KodeProv   string `json:"kode_prov"`
+			Email      string `json:"email"`
+			UploadType string `json:"upload_type"`
+			FileName   string `json:"file_name"`
+		} `json:"data"`
 	}
 
 	if err := json.Unmarshal([]byte(rawJSON), &apiResp); err != nil {
 		return nil, 0, fmt.Errorf("json decode failed: %v, raw: %s", err, rawJSON)
 	}
 
-	total := len(apiResp.Data)
+	// Group by user_name + full_name + address1 + email
+	type groupKey struct {
+		UserName string
+		FullName string
+		Address1 string
+		Email    string
+	}
+
+	grouped := make(map[groupKey]*domain.Kyc)
+	order := make([]groupKey, 0)
+
+	for _, row := range apiResp.Data {
+		key := groupKey{
+			UserName: row.UserName,
+			FullName: row.FullName,
+			Address1: row.Address1,
+			Email:    row.Email,
+		}
+
+		if existing, ok := grouped[key]; ok {
+			existing.UploadType = append(existing.UploadType, row.UploadType)
+			existing.FileName = append(existing.FileName, row.FileName)
+		} else {
+			grouped[key] = &domain.Kyc{
+				UserName:   row.UserName,
+				FullName:   row.FullName,
+				Address1:   row.Address1,
+				Address2:   row.Address2,
+				Zip:        row.Zip,
+				KodeKota:   row.KodeKota,
+				KodeProv:   row.KodeProv,
+				Email:      row.Email,
+				UploadType: []string{row.UploadType},
+				FileName:   []string{row.FileName},
+			}
+			order = append(order, key)
+		}
+	}
+
+	// Build ordered result
+	data := make([]domain.Kyc, 0, len(order))
+	for _, key := range order {
+		data = append(data, *grouped[key])
+	}
+
+	// Filter by search keyword (case-insensitive)
+	if search != "" {
+		s := strings.ToLower(search)
+		filtered := make([]domain.Kyc, 0)
+		for _, k := range data {
+			if strings.Contains(strings.ToLower(k.UserName), s) ||
+				strings.Contains(strings.ToLower(k.FullName), s) ||
+				strings.Contains(strings.ToLower(k.Email), s) {
+				filtered = append(filtered, k)
+			}
+		}
+		data = filtered
+	}
+
+	total := len(data)
 
 	if limit > 0 {
 		if offset >= total {
@@ -108,10 +178,10 @@ func (r *kycRepository) GetAllKyc(ctx context.Context, limit, offset int) ([]dom
 			end = total
 		}
 
-		return apiResp.Data[offset:end], total, nil
+		return data[offset:end], total, nil
 	}
 
-	return apiResp.Data, total, nil
+	return data, total, nil
 }
 
 func sanitizeWindowsPath(s string) string {

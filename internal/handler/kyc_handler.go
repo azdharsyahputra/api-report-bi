@@ -25,6 +25,7 @@ func NewKycHandler(service *service.KycService, log *zap.Logger) *KycHandler {
 func (h *KycHandler) GetAllKyc(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
+	search := c.Query("search")
 
 	if page < 1 {
 		page = 1
@@ -35,7 +36,7 @@ func (h *KycHandler) GetAllKyc(c *gin.Context) {
 
 	offset := (page - 1) * limit
 
-	data, total, err := h.service.GetAllDataKyc(c.Request.Context(), limit, offset)
+	data, total, err := h.service.GetAllDataKyc(c.Request.Context(), search, limit, offset)
 	if err != nil {
 		h.log.Error("failed to get all kyc data", zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
