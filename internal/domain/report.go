@@ -27,5 +27,5 @@ type PayBankReportRequest struct {
 
 type ReportRepository interface {
 	GetReport(ctx context.Context, report []Report) error
-	GetPayBankReport(ctx context.Context, startDate, endDate string, limit, offset int) ([]PayBankReport, int, error)
+	GetPayBankReport(ctx context.Context, startDate, endDate, search string, limit, offset int) ([]PayBankReport, int, error)
 }

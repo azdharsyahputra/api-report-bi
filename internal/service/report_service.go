@@ -25,12 +25,12 @@ func NewReportService(repo domain.ReportRepository, branchRepo domain.BranchCode
 	}
 }
 
-func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate string, limit, offset int) ([]domain.PayBankReport, int, error) {
+func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate, search string, limit, offset int) ([]domain.PayBankReport, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 
 	fmt.Println("DEBUG SVC: Fetching PayBank report...")
-	reports, total, err := s.repo.GetPayBankReport(ctx, startDate, endDate, limit, offset)
+	reports, total, err := s.repo.GetPayBankReport(ctx, startDate, endDate, search, limit, offset)
 	if err != nil {
 		fmt.Println("DEBUG SVC: GetPayBankReport ERROR:", err)
 		return nil, 0, err
@@ -97,7 +97,7 @@ func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate
 }
 
 func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endDate string) ([]byte, error) {
-	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, 0, 0)
+	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endD
 }
 
 func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDate string) ([]byte, error) {
-	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, 0, 0)
+	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", 0, 0)
 	if err != nil {
 		return nil, err
 	}
