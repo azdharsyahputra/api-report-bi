@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+
 	"portal-report-bi/internal/domain"
-	"regexp"
 )
 
 type kycRepository struct {
@@ -74,13 +75,14 @@ func (r *kycRepository) GetAllKyc(ctx context.Context) ([]domain.Kyc, error) {
 		Data []domain.Kyc `json:"data"`
 	}
 
-	// The Query Service sometimes returns unescaped backslashes in paths (e.g. C:\6...).
-	// Escape any backslash that is not part of a valid JSON escape sequence.
-	re := regexp.MustCompile(`\\([^"\\/bfnrtu])`)
-	sanitizedBody := re.ReplaceAll(respBody, []byte(`\\$1`))
+	// The database stores paths like c:\superx\img...
+	// When the Query Service encodes this into a JSON string without escaping the backslashes,
+	// json.Unmarshal fails because \s, \i, \k are invalid JSON escape codes.
+	// We globally replace all single \ with \\ so it becomes valid JSON (c:\\superx\\img...).
+	rawJSON := strings.ReplaceAll(string(respBody), "\\", "\\\\")
 
-	if err := json.Unmarshal(sanitizedBody, &apiResp); err != nil {
-		return nil, fmt.Errorf("json unmarshal error: %v, raw: %s", err, string(sanitizedBody))
+	if err := json.Unmarshal([]byte(rawJSON), &apiResp); err != nil {
+		return nil, fmt.Errorf("json unmarshal error: %v, raw: %s", err, rawJSON)
 	}
 
 	return apiResp.Data, nil
