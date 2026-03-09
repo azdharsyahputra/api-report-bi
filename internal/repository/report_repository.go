@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"portal-report-bi/internal/domain"
 	"regexp"
-	"sort"
 	"strings"
 )
 
@@ -85,23 +84,51 @@ func (r *reportRepository) GetPayBankReport(
 ) ([]domain.PayBankReport, int, error) {
 
 	query := fmt.Sprintf(`
-		SELECT tt.nom AS kode_produk,
-			su.full_name AS pengirim,
-			TO_CHAR(r.id) AS prefix_pengirim,
-			r.name AS kota_pengirim,
-			tt.te_transid
-		FROM vdapp_3.t_trans tt
-		LEFT JOIN vdapp_3.t_store_user su ON tt.user_name = su.user_name
-		LEFT JOIN vdapp_3.regencies r ON su.kode_kota = r.id
-		WHERE tt.nom = 'PAYBANK'
-		AND tt.trans_stat = 200
-		AND tt.time_start >= TO_DATE('%s','YYYYMMDD')
-		AND tt.time_start < TO_DATE('%s','YYYYMMDD')
-		`, startDate, endDate)
+SELECT
+    kode_produk,
+    no_hp,
+    pengirim,
+    prefix_pengirim,
+    kota_pengirim,
+    no_rek,
+    nama_penerima,
+    bank_tujuan,
+    jumlah,
+    COUNT(*) AS volume
+FROM
+(
+    SELECT
+        tt.nom AS kode_produk,
+        tt.user_name AS no_hp,
+        su.full_name AS pengirim,
+        TO_CHAR(r.id) AS prefix_pengirim,
+        r.name AS kota_pengirim,
+        REGEXP_SUBSTR(tt.te_transid, 'NO\. REK\s*:\s*([^|]+)', 1, 1, NULL, 1) AS no_rek,
+        REGEXP_SUBSTR(tt.te_transid, 'NAMA\s*:\s*([^|]+)', 1, 1, NULL, 1) AS nama_penerima,
+        REGEXP_SUBSTR(tt.te_transid, 'BANK\s*:\s*([^|]+)', 1, 1, NULL, 1) AS bank_tujuan,
+        REGEXP_SUBSTR(tt.te_transid, 'JUMLAH\s*:\s*Rp\.\s*([^|]+)', 1, 1, NULL, 1) AS jumlah
+    FROM vdapp_3.t_trans tt
+    LEFT JOIN vdapp_3.t_store_user su ON tt.user_name = su.user_name
+    LEFT JOIN vdapp_3.regencies r ON su.kode_kota = r.id
+    WHERE tt.nom = 'PAYBANK'
+    AND tt.trans_stat = 200
+    AND tt.time_start >= TO_DATE('%s','YYYYMMDD')
+    AND tt.time_start < TO_DATE('%s','YYYYMMDD')
+)
+GROUP BY
+    kode_produk,
+    no_hp,
+    pengirim,
+    prefix_pengirim,
+    kota_pengirim,
+    no_rek,
+    nama_penerima,
+    bank_tujuan,
+    jumlah
+ORDER BY volume DESC
+	`, startDate, endDate)
 
 	query = normalizeQuery(query)
-
-	fmt.Println("FINAL SQL:", query)
 
 	respBody, err := r.executeQuery(query)
 	if err != nil {
@@ -110,11 +137,16 @@ func (r *reportRepository) GetPayBankReport(
 
 	var apiResponse struct {
 		Data []struct {
-			KodeProduk     string `json:"kode_produk"`
-			Pengirim       string `json:"pengirim"`
-			PrefixPengirim string `json:"prefix_pengirim"`
-			KotaPengirim   string `json:"kota_pengirim"`
-			TeTransid      string `json:"te_transid"`
+			KodeProduk     string      `json:"kode_produk"`
+			NoHp           string      `json:"no_hp"`
+			Pengirim       string      `json:"pengirim"`
+			PrefixPengirim string      `json:"prefix_pengirim"`
+			KotaPengirim   string      `json:"kota_pengirim"`
+			NoRek          string      `json:"no_rek"`
+			NamaPenerima   string      `json:"nama_penerima"`
+			BankTujuan     string      `json:"bank_tujuan"`
+			Jumlah         string      `json:"jumlah"`
+			Volume         json.Number `json:"volume"`
 		} `json:"data"`
 	}
 
@@ -122,72 +154,30 @@ func (r *reportRepository) GetPayBankReport(
 		return nil, 0, err
 	}
 
-	type reportKey struct {
-		KodeProduk     string
-		Pengirim       string
-		PrefixPengirim string
-		KotaPengirim   string
-		NoRek          string
-		NamaPenerima   string
-		BankTujuan     string
-		Jumlah         string
-	}
-
-	grouped := make(map[reportKey]int64)
+	var data []domain.PayBankReport
 
 	for _, row := range apiResponse.Data {
+		vol, _ := row.Volume.Int64()
 
-		var noRek, namaPenerima, bankTujuan, jumlah string
+		// Sanitize values
+		jumlah := strings.ReplaceAll(strings.TrimSpace(row.Jumlah), ".", "")
 
-		if m := reNoRek.FindStringSubmatch(row.TeTransid); len(m) > 1 {
-			noRek = strings.TrimSpace(m[1])
-		}
-		if m := reNama.FindStringSubmatch(row.TeTransid); len(m) > 1 {
-			namaPenerima = strings.TrimSpace(m[1])
-		}
-		if m := reBank.FindStringSubmatch(row.TeTransid); len(m) > 1 {
-			bankTujuan = strings.TrimSpace(m[1])
-		}
-		if m := reJumlah.FindStringSubmatch(row.TeTransid); len(m) > 1 {
-			jumlah = strings.ReplaceAll(strings.TrimSpace(m[1]), ".", "")
-		}
-
-		key := reportKey{
-			KodeProduk:     row.KodeProduk,
-			Pengirim:       row.Pengirim,
-			PrefixPengirim: row.PrefixPengirim,
-			KotaPengirim:   row.KotaPengirim,
-			NoRek:          noRek,
-			NamaPenerima:   namaPenerima,
-			BankTujuan:     bankTujuan,
-			Jumlah:         jumlah,
-		}
-
-		grouped[key]++
-	}
-
-	data := make([]domain.PayBankReport, 0, len(grouped))
-
-	for key, vol := range grouped {
 		data = append(data, domain.PayBankReport{
-			KodeProduk:     key.KodeProduk,
-			Pengirim:       key.Pengirim,
-			PrefixPengirim: key.PrefixPengirim,
-			KotaPengirim:   key.KotaPengirim,
-			NoRek:          key.NoRek,
-			NamaPenerima:   key.NamaPenerima,
-			BankTujuan:     key.BankTujuan,
-			Jumlah:         key.Jumlah,
+			KodeProduk:     strings.TrimSpace(row.KodeProduk),
+			Pengirim:       strings.TrimSpace(row.Pengirim),
+			PrefixPengirim: strings.TrimSpace(row.PrefixPengirim),
+			KotaPengirim:   strings.TrimSpace(row.KotaPengirim),
+			NoRek:          strings.TrimSpace(row.NoRek),
+			NamaPenerima:   strings.TrimSpace(row.NamaPenerima),
+			BankTujuan:     strings.TrimSpace(row.BankTujuan),
+			Jumlah:         jumlah,
 			Volume:         vol,
 		})
 	}
 
-	sort.Slice(data, func(i, j int) bool {
-		return data[i].Volume > data[j].Volume
-	})
-
 	total := len(data)
 
+	// In-memory Array Pagination exactly as it was originally used
 	if limit > 0 {
 		if offset >= total {
 			return []domain.PayBankReport{}, total, nil
