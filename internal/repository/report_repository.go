@@ -150,9 +150,14 @@ ORDER BY volume DESC
 		} `json:"data"`
 	}
 
+	fmt.Println("DEBUG: RAW JSON PAYBANK = ", string(respBody))
+
 	if err := json.Unmarshal(respBody, &apiResponse); err != nil {
+		fmt.Println("DEBUG: Unmarshal Error =", err)
 		return nil, 0, err
 	}
+
+	fmt.Println("DEBUG: Unmarshaled API Data Length =", len(apiResponse.Data))
 
 	var data []domain.PayBankReport
 
