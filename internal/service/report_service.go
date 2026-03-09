@@ -154,6 +154,8 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 
 	// Build prefix-to-dropdown map from Sheet3 (Column AA)
 	kabMap := make(map[string]string)
+	tujuanMap := make(map[string]string) // for Tujuan Transaksi
+
 	if sheet3Rows, err := f.GetRows("Sheet3"); err == nil {
 		for i, row := range sheet3Rows {
 			if i == 0 {
@@ -165,8 +167,34 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 					kabMap[val[:4]] = val
 				}
 			}
+			// Parse Tujuan Transaksi from Column CD (index 81)
+			if len(row) > 81 {
+				val := row[81]
+				if len(val) > 0 {
+					// map first character (e.g. "3") to "3-Non Usaha – Lainnya "
+					tujuanMap[val[:1]] = val
+				}
+			}
 		}
 	}
+
+	// Apply data validation to all rows we will write
+	lastRow := 7 + len(reports) - 1
+	if lastRow < 9 {
+		lastRow = 9 // keep default if empty
+	}
+
+	// Create validation for Kabupaten (Columns B and C)
+	dvKab := excelize.NewDataValidation(true)
+	dvKab.Sqref = fmt.Sprintf("B7:C%d", lastRow)
+	dvKab.SetSqrefDropList("Kabupaten")
+	f.AddDataValidation(sheet, dvKab)
+
+	// Create validation for TujuanTransaksi (Column H)
+	dvTujuan := excelize.NewDataValidation(true)
+	dvTujuan.Sqref = fmt.Sprintf("H7:H%d", lastRow)
+	dvTujuan.SetSqrefDropList("TujuanTransaksi")
+	f.AddDataValidation(sheet, dvTujuan)
 
 	// Write report data starting at row 7
 	for i, r := range reports {
@@ -191,6 +219,13 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 			penerimaDropdown = ""
 		}
 
+		// Format Tujuan Transaksi
+		tujuanVal := "3" // Default based on user example
+		tujuanDropdown := tujuanMap[tujuanVal]
+		if tujuanDropdown == "" {
+			tujuanDropdown = tujuanVal
+		}
+
 		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), i+1)
 		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), pengirimDropdown)
 		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), penerimaDropdown)
@@ -198,7 +233,7 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), strings.ToUpper(r.Pengirim))
 		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), r.Volume)
 		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), r.Jumlah)
-		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), "3")
+		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), tujuanDropdown)
 	}
 
 	var buf bytes.Buffer
