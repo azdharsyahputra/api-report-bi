@@ -51,7 +51,7 @@ func (r *kycRepository) executeQuery(query string) ([]byte, error) {
 	return respBody, nil
 }
 
-func (r *kycRepository) GetAllKyc(ctx context.Context) ([]domain.Kyc, error) {
+func (r *kycRepository) GetAllKyc(ctx context.Context, limit, offset int) ([]domain.Kyc, int, error) {
 
 	query := `
 		SELECT 
@@ -72,7 +72,7 @@ func (r *kycRepository) GetAllKyc(ctx context.Context) ([]domain.Kyc, error) {
 
 	respBody, err := r.executeQuery(query)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	rawJSON := string(respBody)
@@ -93,10 +93,25 @@ func (r *kycRepository) GetAllKyc(ctx context.Context) ([]domain.Kyc, error) {
 	}
 
 	if err := json.Unmarshal([]byte(rawJSON), &apiResp); err != nil {
-		return nil, fmt.Errorf("json decode failed: %v, raw: %s", err, rawJSON)
+		return nil, 0, fmt.Errorf("json decode failed: %v, raw: %s", err, rawJSON)
 	}
 
-	return apiResp.Data, nil
+	total := len(apiResp.Data)
+
+	if limit > 0 {
+		if offset >= total {
+			return []domain.Kyc{}, total, nil
+		}
+
+		end := offset + limit
+		if end > total {
+			end = total
+		}
+
+		return apiResp.Data[offset:end], total, nil
+	}
+
+	return apiResp.Data, total, nil
 }
 
 func sanitizeWindowsPath(s string) string {
