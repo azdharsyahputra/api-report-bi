@@ -36,29 +36,17 @@ func (r *reportRepository) executeQuery(query string) ([]byte, error) {
 
 	b, _ := json.Marshal(body)
 
-	fmt.Println("=================================")
-	fmt.Println("QUERY SERVICE URL:", r.queryServiceURL)
-	fmt.Println("QUERY SENT:", query)
-	fmt.Println("QUERY LENGTH:", len(query))
-	fmt.Println("REQUEST BODY:", string(b))
-	fmt.Println("=================================")
-
 	resp, err := http.Post(
 		r.queryServiceURL,
 		"application/json",
 		bytes.NewBuffer(b),
 	)
 	if err != nil {
-		fmt.Println("HTTP ERROR:", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, _ := io.ReadAll(resp.Body)
-
-	fmt.Println("RESPONSE STATUS:", resp.StatusCode)
-	fmt.Println("RESPONSE BODY:", string(bodyBytes))
-	fmt.Println("=================================")
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("query service error: %s", string(bodyBytes))

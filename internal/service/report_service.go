@@ -29,21 +29,15 @@ func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate
 	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 
-	fmt.Println("DEBUG SVC: Fetching PayBank report...")
 	reports, total, err := s.repo.GetPayBankReport(ctx, startDate, endDate, search, limit, offset)
 	if err != nil {
-		fmt.Println("DEBUG SVC: GetPayBankReport ERROR:", err)
 		return nil, 0, err
 	}
-	fmt.Println("DEBUG SVC: Got", len(reports), "report rows, total:", total)
 
-	fmt.Println("DEBUG SVC: Fetching branch bank data...")
 	branches, _, err := s.branchRepo.GetAll(ctx, "", "", 0, 0)
 	if err != nil {
-		fmt.Println("DEBUG SVC: branchRepo.GetAll ERROR:", err)
 		return nil, 0, err
 	}
-	fmt.Println("DEBUG SVC: Got", len(branches), "branches")
 
 	kotaToRegencyCode := make(map[string]string)
 	branchToRegencyCode := make(map[string]string)
