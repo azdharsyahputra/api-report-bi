@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"portal-report-bi/internal/domain"
@@ -27,13 +28,15 @@ func (r *kycRepository) executeQuery(query string) ([]byte, error) {
 		"qstr": query,
 	}
 
-	b, _ := json.Marshal(body)
+	b, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
 
 	resp, err := http.Post(r.queryServiceURL, "application/json", bytes.NewBuffer(b))
 	if err != nil {
 		return nil, err
 	}
-
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
@@ -49,6 +52,7 @@ func (r *kycRepository) executeQuery(query string) ([]byte, error) {
 }
 
 func (r *kycRepository) GetAllKyc(ctx context.Context) ([]domain.Kyc, error) {
+
 	query := `
 		SELECT 
 			tsu.user_name, 
@@ -71,31 +75,72 @@ func (r *kycRepository) GetAllKyc(ctx context.Context) ([]domain.Kyc, error) {
 		return nil, err
 	}
 
+	rawJSON := string(respBody)
+
+	// FIX 1: hapus newline dari query service
+	rawJSON = strings.ReplaceAll(rawJSON, "\r", "")
+	rawJSON = strings.ReplaceAll(rawJSON, "\n", "")
+	rawJSON = strings.ReplaceAll(rawJSON, "\t", "")
+
+	// FIX 2: escape invalid backslash (\6 \s dll)
+	rawJSON = fixInvalidEscape(rawJSON)
+
+	// FIX 3: sanitize windows path
+	rawJSON = sanitizeWindowsPath(rawJSON)
+
 	var apiResp struct {
 		Data []domain.Kyc `json:"data"`
 	}
 
-	// The database stores paths like c:\superx\img...
-	// When the Query Service encodes this into a JSON string without escaping the backslashes,
-	// json.Unmarshal fails because \s, \i, \k are invalid JSON escape codes.
-	// We globally replace all single \ with \\ so it becomes valid JSON (c:\\superx\\img...).
-	rawJSON := strings.ReplaceAll(string(respBody), "\\", "\\\\")
-
 	if err := json.Unmarshal([]byte(rawJSON), &apiResp); err != nil {
-		return nil, fmt.Errorf("json unmarshal error: %v, raw: %s", err, rawJSON)
-	}
-
-	for i := range apiResp.Data {
-		// Convert all erratic backslash escapes into forward slashes
-		cleanPath := strings.ReplaceAll(apiResp.Data[i].FileName, "\\", "/")
-
-		// Collapse multiple slashes (e.g. "c:////superx") into a standard path "c:/superx"
-		for strings.Contains(cleanPath, "//") {
-			cleanPath = strings.ReplaceAll(cleanPath, "//", "/")
-		}
-
-		apiResp.Data[i].FileName = cleanPath
+		return nil, fmt.Errorf("json decode failed: %v, raw: %s", err, rawJSON)
 	}
 
 	return apiResp.Data, nil
+}
+
+func sanitizeWindowsPath(s string) string {
+
+	re := regexp.MustCompile(`c:\\+[^"]+`)
+
+	return re.ReplaceAllStringFunc(s, func(path string) string {
+
+		path = strings.ReplaceAll(path, "\\", "/")
+
+		for strings.Contains(path, "//") {
+			path = strings.ReplaceAll(path, "//", "/")
+		}
+
+		return path
+	})
+}
+
+func fixInvalidEscape(s string) string {
+
+	var b strings.Builder
+
+	for i := 0; i < len(s); i++ {
+
+		if s[i] == '\\' && i+1 < len(s) {
+
+			c := s[i+1]
+
+			if c != '\\' &&
+				c != '"' &&
+				c != '/' &&
+				c != 'b' &&
+				c != 'f' &&
+				c != 'n' &&
+				c != 'r' &&
+				c != 't' &&
+				c != 'u' {
+
+				b.WriteByte('\\')
+			}
+		}
+
+		b.WriteByte(s[i])
+	}
+
+	return b.String()
 }
