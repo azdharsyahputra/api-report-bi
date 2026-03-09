@@ -85,12 +85,7 @@ func (r *reportRepository) GetPayBankReport(
 ) ([]domain.PayBankReport, int, error) {
 
 	query := fmt.Sprintf(`
-SELECT
-    tt.nom AS kode_produk,
-    su.full_name AS pengirim,
-    TO_CHAR(r.id) AS prefix_pengirim,
-    r.name AS kota_pengirim,
-    tt.te_transid
+SELECT tt.nom, su.full_name, r.id, r.name, tt.te_transid
 FROM t_trans tt
 LEFT JOIN t_store_user su ON tt.user_name = su.user_name
 LEFT JOIN regencies r ON su.kode_kota = r.id
@@ -108,11 +103,11 @@ AND tt.time_start BETWEEN TO_DATE('%s','YYYYMMDD') AND TO_DATE('%s','YYYYMMDD') 
 
 	var apiResponse struct {
 		Data []struct {
-			KodeProduk     string `json:"kode_produk"`
-			Pengirim       string `json:"pengirim"`
-			PrefixPengirim string `json:"prefix_pengirim"`
-			KotaPengirim   string `json:"kota_pengirim"`
-			TeTransid      string `json:"te_transid"`
+			Nom       string `json:"nom"`
+			FullName  string `json:"full_name"`
+			ID        string `json:"id"`
+			Name      string `json:"name"`
+			TeTransid string `json:"te_transid"`
 		} `json:"data"`
 	}
 
@@ -151,10 +146,10 @@ AND tt.time_start BETWEEN TO_DATE('%s','YYYYMMDD') AND TO_DATE('%s','YYYYMMDD') 
 		}
 
 		key := reportKey{
-			KodeProduk:     row.KodeProduk,
-			Pengirim:       row.Pengirim,
-			PrefixPengirim: row.PrefixPengirim,
-			KotaPengirim:   row.KotaPengirim,
+			KodeProduk:     row.Nom,
+			Pengirim:       row.FullName,
+			PrefixPengirim: fmt.Sprintf("%v", row.ID),
+			KotaPengirim:   row.Name,
 			NoRek:          noRek,
 			NamaPenerima:   namaPenerima,
 			BankTujuan:     bankTujuan,
