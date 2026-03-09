@@ -85,5 +85,17 @@ func (r *kycRepository) GetAllKyc(ctx context.Context) ([]domain.Kyc, error) {
 		return nil, fmt.Errorf("json unmarshal error: %v, raw: %s", err, rawJSON)
 	}
 
+	for i := range apiResp.Data {
+		// Convert all erratic backslash escapes into forward slashes
+		cleanPath := strings.ReplaceAll(apiResp.Data[i].FileName, "\\", "/")
+
+		// Collapse multiple slashes (e.g. "c:////superx") into a standard path "c:/superx"
+		for strings.Contains(cleanPath, "//") {
+			cleanPath = strings.ReplaceAll(cleanPath, "//", "/")
+		}
+
+		apiResp.Data[i].FileName = cleanPath
+	}
+
 	return apiResp.Data, nil
 }
