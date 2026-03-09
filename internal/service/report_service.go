@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/xuri/excelize/v2"
 )
 
 type ReportService struct {
@@ -104,6 +106,68 @@ func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endD
 	for _, r := range reports {
 		line := s.buildExportLine(r)
 		buf.WriteString(line + "\r\n")
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDate string) ([]byte, error) {
+	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := excelize.OpenFile("internal/template/AplikasiExcelLTDBBnewkosong.xlsm")
+	if err != nil {
+		return nil, fmt.Errorf("failed to open excel template: %v", err)
+	}
+	defer f.Close()
+
+	sheet := "G0003"
+
+	// Update period in LTDBB Header & G0003
+	year := ""
+	month := ""
+	if len(startDate) >= 6 {
+		year = startDate[:4]
+		month = startDate[4:6]
+	}
+
+	// LTDBB Header
+	f.SetCellValue("LTDBB Header", "E5", year)
+	f.SetCellValue("LTDBB Header", "F5", month)
+
+	// G0003 header
+	f.SetCellValue(sheet, "C5", year)
+	f.SetCellValue(sheet, "D5", month)
+
+	// Update record count
+	f.SetCellValue(sheet, "K4", len(reports))
+	f.SetCellValue("LTDBB Header", "E18", len(reports))
+
+	// Clear existing template data rows (rows 7-9)
+	for r := 7; r <= 9; r++ {
+		for _, col := range []string{"A", "B", "C", "D", "E", "F", "G", "H"} {
+			f.SetCellValue(sheet, fmt.Sprintf("%s%d", col, r), "")
+		}
+	}
+
+	// Write report data starting at row 7
+	for i, r := range reports {
+		row := 7 + i
+		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), i+1)
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), s.padLeftZero(r.PrefixPengirim, 4))
+		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), s.padLeftZero(r.PrefixPenerima, 4))
+		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), strings.ToUpper(r.NamaPenerima))
+		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), strings.ToUpper(r.Pengirim))
+		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), r.Volume)
+		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), r.Jumlah)
+		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), "3")
+	}
+
+	var buf bytes.Buffer
+	if err := f.Write(&buf); err != nil {
+		return nil, fmt.Errorf("failed to write excel: %v", err)
 	}
 
 	return buf.Bytes(), nil

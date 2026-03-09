@@ -106,3 +106,37 @@ func (h *ReportHandler) ExportPayBankReport(c *gin.Context) {
 	c.Header("Content-Type", "text/plain")
 	c.Data(http.StatusOK, "text/plain", data)
 }
+
+func (h *ReportHandler) ExportPayBankExcelReport(c *gin.Context) {
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	if startDate == "" || endDate == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"message": "start_date and end_date query parameters are required in yyyymmdd format",
+			},
+		})
+		return
+	}
+
+	data, err := h.service.ExportPayBankExcel(c.Request.Context(), startDate, endDate)
+	if err != nil {
+		h.logger.Error("failed to export paybank excel report",
+			zap.String("start_date", startDate),
+			zap.String("end_date", endDate),
+			zap.Error(err),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"message": "Internal server error",
+			},
+		})
+		return
+	}
+
+	fileName := fmt.Sprintf("LTDBB_paybank_%s_%s.xlsm", startDate, endDate)
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	c.Header("Content-Type", "application/vnd.ms-excel.sheet.macroEnabled.12")
+	c.Data(http.StatusOK, "application/vnd.ms-excel.sheet.macroEnabled.12", data)
+}

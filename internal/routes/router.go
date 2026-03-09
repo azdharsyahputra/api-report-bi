@@ -10,7 +10,6 @@ import (
 func RegisterRoutes(
 	r *gin.Engine,
 	authHandler *handler.AuthHandler,
-	regencyHandler *handler.RegencyHandler,
 	reportHandler *handler.ReportHandler,
 	importHandler *handler.ImportHandler,
 	branchBankHandler *handler.BranchBankHandler,
@@ -29,20 +28,11 @@ func RegisterRoutes(
 	protected := r.Group("")
 	protected.Use(middleware.AuthMiddleware())
 	{
-		regencies := protected.Group("/regencies")
-		{
-			regencies.POST("", regencyHandler.Create)
-			regencies.GET("", regencyHandler.Get)
-			regencies.GET("/:id", regencyHandler.FindByID)
-			regencies.PUT("/:id", regencyHandler.Update)
-			regencies.DELETE("/:id", regencyHandler.Delete)
-			regencies.GET("/sync", regencyHandler.SyncAndGet)
-		}
-
 		reports := protected.Group("/reports")
 		{
 			reports.GET("/paybank", reportHandler.GetPayBankReport)
 			reports.GET("/paybank/export-csv", reportHandler.ExportPayBankReport)
+			reports.GET("/paybank/export-excel", reportHandler.ExportPayBankExcelReport)
 		}
 
 		imports := protected.Group("/import")
