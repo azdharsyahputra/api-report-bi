@@ -45,7 +45,6 @@ func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate
 	for _, b := range branches {
 		if b.RegenciesCode != "" {
 			exact := strings.ToUpper(strings.TrimSpace(b.Regencies))
-			// Hapus kotoran seperti "WILL KOTA ", "WIL. KOTA ", "WIL KOTA "
 			exact = strings.ReplaceAll(exact, "WILL KOTA ", "KOTA ")
 			exact = strings.ReplaceAll(exact, "WIL. KOTA ", "KOTA ")
 			exact = strings.ReplaceAll(exact, "WIL KOTA ", "KOTA ")
@@ -64,15 +63,12 @@ func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate
 	}
 
 	for i := range reports {
-		// prefix_penerima mapping
 		branchCodePenerima := s.extractPrefix(reports[i].BankTujuan, reports[i].NoRek)
 		if rc, ok := branchToRegencyCode[branchCodePenerima]; ok {
 			reports[i].PrefixPenerima = rc
 		} else {
 			reports[i].PrefixPenerima = branchCodePenerima
 		}
-
-		// prefix_pengirim mapping
 		kota := strings.ToUpper(strings.TrimSpace(reports[i].KotaPengirim))
 		if rc, ok := kotaToRegencyCode[kota]; ok {
 			reports[i].PrefixPengirim = rc
@@ -139,16 +135,14 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 	f.SetCellValue(sheet, "K4", len(reports))
 	f.SetCellValue("LTDBB Header", "E18", len(reports))
 
-	// Clear existing template data rows (rows 7-9)
 	for r := 7; r <= 9; r++ {
 		for _, col := range []string{"A", "B", "C", "D", "E", "F", "G", "H"} {
 			f.SetCellValue(sheet, fmt.Sprintf("%s%d", col, r), "")
 		}
 	}
 
-	// Build prefix-to-dropdown map from Sheet3 (Column AA)
 	kabMap := make(map[string]string)
-	tujuanMap := make(map[string]string) // for Tujuan Transaksi
+	tujuanMap := make(map[string]string)
 
 	if sheet3Rows, err := f.GetRows("Sheet3"); err == nil {
 		for i, row := range sheet3Rows {
@@ -156,48 +150,42 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 				continue
 			}
 			if len(row) > 26 {
-				val := row[26] // AA is index 26
+				val := row[26]
 				if len(val) >= 4 {
 					kabMap[val[:4]] = val
 				}
 			}
-			// Parse Tujuan Transaksi from Column CD (index 81)
 			if len(row) > 81 {
 				val := row[81]
 				if len(val) > 0 {
-					// map first character (e.g. "3") to "3-Non Usaha – Lainnya "
 					tujuanMap[val[:1]] = val
 				}
 			}
 		}
 	}
 
-	// Apply data validation to all rows we will write
 	lastRow := 7 + len(reports) - 1
 	if lastRow < 9 {
-		lastRow = 9 // keep default if empty
+		lastRow = 9
 	}
 
-	// Create validation for Kabupaten (Columns B and C)
 	dvKab := excelize.NewDataValidation(true)
 	dvKab.Sqref = fmt.Sprintf("B7:C%d", lastRow)
 	dvKab.SetSqrefDropList("Kabupaten")
 	f.AddDataValidation(sheet, dvKab)
 
-	// Create validation for TujuanTransaksi (Column H)
 	dvTujuan := excelize.NewDataValidation(true)
 	dvTujuan.Sqref = fmt.Sprintf("H7:H%d", lastRow)
 	dvTujuan.SetSqrefDropList("TujuanTransaksi")
 	f.AddDataValidation(sheet, dvTujuan)
 
-	// Write report data starting at row 7
 	for i, r := range reports {
 		row := 7 + i
 
 		pengirimPrefix := s.padLeftZero(r.PrefixPengirim, 4)
 		pengirimDropdown := kabMap[pengirimPrefix]
 		if pengirimDropdown == "" && pengirimPrefix != "" && pengirimPrefix != "0000" {
-			pengirimDropdown = pengirimPrefix // Fallback if not found in template
+			pengirimDropdown = pengirimPrefix
 		}
 
 		penerimaPrefix := s.padLeftZero(r.PrefixPenerima, 4)
@@ -213,8 +201,7 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 			penerimaDropdown = ""
 		}
 
-		// Format Tujuan Transaksi
-		tujuanVal := "3" // Default based on user example
+		tujuanVal := "3"
 		tujuanDropdown := tujuanMap[tujuanVal]
 		if tujuanDropdown == "" {
 			tujuanDropdown = tujuanVal
@@ -239,14 +226,13 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 }
 
 func (s *ReportService) buildExportLine(r domain.PayBankReport) string {
-	// Logic from user request
 	prefixPengirim := s.padLeftZero(r.PrefixPengirim, 4)
 	prefixPenerima := s.padLeftZero(r.PrefixPenerima, 4)
 	namaPenerima := s.padRight(strings.ToUpper(r.NamaPenerima), 50)
 	namaPengirim := s.padRight(strings.ToUpper(r.Pengirim), 50)
 	volume := s.padLeftZero(strconv.FormatInt(r.Volume, 10), 15)
 	nominal := s.padLeftZero(r.Jumlah, 12)
-	tujuan := "3" // Default based on user example
+	tujuan := "3"
 
 	return prefixPengirim + prefixPenerima + namaPenerima + namaPengirim + volume + nominal + tujuan
 }
