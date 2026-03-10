@@ -30,7 +30,6 @@ func (h *ReportHandler) GetPayBankReport(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	search := c.Query("search")
 	bankTujuan := c.Query("bank_tujuan")
-	missingPrefix, _ := strconv.ParseBool(c.DefaultQuery("missing_prefix", "false"))
 
 	if startDate == "" || endDate == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -50,7 +49,7 @@ func (h *ReportHandler) GetPayBankReport(c *gin.Context) {
 
 	offset := (page - 1) * limit
 
-	report, total, err := h.service.GetPayBankReport(c.Request.Context(), startDate, endDate, search, bankTujuan, missingPrefix, limit, offset)
+	report, total, err := h.service.GetPayBankReport(c.Request.Context(), startDate, endDate, search, bankTujuan, limit, offset)
 	if err != nil {
 		h.logger.Error("failed to get paybank report",
 			zap.String("start_date", startDate),
