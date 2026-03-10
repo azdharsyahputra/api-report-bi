@@ -30,6 +30,7 @@ func (h *ReportHandler) GetPayBankReport(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	search := c.Query("search")
 	bankTujuan := c.Query("bank_tujuan")
+	missingPrefix, _ := strconv.ParseBool(c.DefaultQuery("missing_prefix", "false"))
 
 	if startDate == "" || endDate == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -49,7 +50,7 @@ func (h *ReportHandler) GetPayBankReport(c *gin.Context) {
 
 	offset := (page - 1) * limit
 
-	report, total, err := h.service.GetPayBankReport(c.Request.Context(), startDate, endDate, search, bankTujuan, limit, offset)
+	report, total, err := h.service.GetPayBankReport(c.Request.Context(), startDate, endDate, search, bankTujuan, missingPrefix, limit, offset)
 	if err != nil {
 		h.logger.Error("failed to get paybank report",
 			zap.String("start_date", startDate),
@@ -143,41 +144,4 @@ func (h *ReportHandler) ExportPayBankExcelReport(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
 	c.Header("Content-Type", "application/vnd.ms-excel.sheet.macroEnabled.12")
 	c.Data(http.StatusOK, "application/vnd.ms-excel.sheet.macroEnabled.12", data)
-}
-
-func (h *ReportHandler) GetMissingPrefixReport(c *gin.Context) {
-	startDate := c.Query("start_date")
-	endDate := c.Query("end_date")
-
-	if startDate == "" || endDate == "" {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": gin.H{
-				"message": "start_date and end_date query parameters are required in yyyymmdd format",
-			},
-		})
-		return
-	}
-
-	report, err := h.service.GetMissingPrefixReport(c.Request.Context(), startDate, endDate)
-	if err != nil {
-		h.logger.Error("failed to get missing prefix report",
-			zap.String("start_date", startDate),
-			zap.String("end_date", endDate),
-			zap.Error(err),
-		)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": gin.H{
-				"message": "Internal server error",
-			},
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Success fetch missing prefix report",
-		"data":    report,
-		"meta": gin.H{
-			"total": len(report),
-		},
-	})
 }

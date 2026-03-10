@@ -25,7 +25,7 @@ func NewReportService(repo domain.ReportRepository, branchRepo domain.BranchCode
 	}
 }
 
-func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate, search, bankTujuan string, limit, offset int) ([]domain.PayBankReport, int, error) {
+func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate, search, bankTujuan string, missingPrefix bool, limit, offset int) ([]domain.PayBankReport, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 
@@ -62,13 +62,17 @@ func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate
 		}
 	}
 
+	var filteredReports []domain.PayBankReport
 	for i := range reports {
 		branchCodePenerima := s.extractPrefix(reports[i].BankTujuan, reports[i].NoRek)
+		isMissing := true
 		if rc, ok := branchToRegencyCode[branchCodePenerima]; ok {
 			reports[i].PrefixPenerima = rc
+			isMissing = false
 		} else {
 			reports[i].PrefixPenerima = branchCodePenerima
 		}
+
 		kota := strings.ToUpper(strings.TrimSpace(reports[i].KotaPengirim))
 		if rc, ok := kotaToRegencyCode[kota]; ok {
 			reports[i].PrefixPengirim = rc
@@ -81,13 +85,22 @@ func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate
 				reports[i].PrefixPengirim = rc
 			}
 		}
+
+		if missingPrefix {
+			if isMissing {
+				filteredReports = append(filteredReports, reports[i])
+			}
+		} else {
+			filteredReports = append(filteredReports, reports[i])
+		}
 	}
 
-	return reports, total, nil
+	total = len(filteredReports)
+	return filteredReports, total, nil
 }
 
 func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endDate, bankTujuan string) ([]byte, error) {
-	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", bankTujuan, 0, 0)
+	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", bankTujuan, false, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +115,7 @@ func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endD
 }
 
 func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDate, bankTujuan string) ([]byte, error) {
-	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", bankTujuan, 0, 0)
+	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", bankTujuan, false, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -276,21 +289,4 @@ func (s *ReportService) extractPrefix(bankName, noRek string) string {
 	}
 
 	return cleanNoRek
-}
-
-func (s *ReportService) GetMissingPrefixReport(ctx context.Context, startDate, endDate string) ([]domain.PayBankReport, error) {
-	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", "", 0, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	var filtered []domain.PayBankReport
-	for _, r := range reports {
-		// Kriteria: prefix_penerima dan no_rek sama (berarti tidak ter-mapping ke Regency)
-		if r.PrefixPenerima == r.NoRek {
-			filtered = append(filtered, r)
-		}
-	}
-
-	return filtered, nil
 }
