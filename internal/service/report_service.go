@@ -277,3 +277,20 @@ func (s *ReportService) extractPrefix(bankName, noRek string) string {
 
 	return cleanNoRek
 }
+
+func (s *ReportService) GetMissingPrefixReport(ctx context.Context, startDate, endDate string) ([]domain.PayBankReport, error) {
+	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", "", 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	var filtered []domain.PayBankReport
+	for _, r := range reports {
+		// Kriteria: prefix_penerima dan no_rek sama (berarti tidak ter-mapping ke Regency)
+		if r.PrefixPenerima == r.NoRek {
+			filtered = append(filtered, r)
+		}
+	}
+
+	return filtered, nil
+}

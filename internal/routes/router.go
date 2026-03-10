@@ -33,6 +33,7 @@ func RegisterRoutes(
 			reports.GET("/paybank", reportHandler.GetPayBankReport)
 			reports.GET("/paybank/export-csv", reportHandler.ExportPayBankReport)
 			reports.GET("/paybank/export-excel", reportHandler.ExportPayBankExcelReport)
+			reports.GET("/missing-prefix", reportHandler.GetMissingPrefixReport)
 		}
 
 		imports := protected.Group("/import")

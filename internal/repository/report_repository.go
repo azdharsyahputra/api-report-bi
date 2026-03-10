@@ -79,7 +79,8 @@ LEFT JOIN t_store_user su ON tt.user_name = su.user_name
 LEFT JOIN regencies r ON su.kode_kota = r.id
 WHERE tt.nom = 'PAYBANK'
 AND tt.trans_stat = 200
-AND tt.time_start BETWEEN TO_DATE('%s','YYYYMMDD') AND TO_DATE('%s','YYYYMMDD') + 1
+AND tt.time_start >= TO_DATE('%s','YYYYMMDD')
+AND tt.time_start <  TO_DATE('%s','YYYYMMDD') + 1
 	`, startDate, endDate)
 
 	query = normalizeQuery(query)
