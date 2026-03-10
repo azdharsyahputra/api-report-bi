@@ -86,11 +86,11 @@ func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate
 	return reports, total, nil
 }
 
-func (s *ReportService) GetMissingBranchReport(ctx context.Context, startDate, endDate, search, bankTujuan string, limit, offset int) ([]domain.PayBankReport, int, error) {
+func (s *ReportService) GetMissingBranchReport(ctx context.Context, startDate, endDate, search, bankTujuan string, limit, offset int) ([]domain.MissingBranchReport, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 
-	reports, _, err := s.repo.GetMissingBranchReport(ctx, startDate, endDate, search, bankTujuan, 0, 0)
+	reports, _, err := s.repo.GetPayBankReport(ctx, startDate, endDate, search, bankTujuan, 0, 0)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -100,32 +100,20 @@ func (s *ReportService) GetMissingBranchReport(ctx context.Context, startDate, e
 		return nil, 0, err
 	}
 
-	kotaToRegencyCode := make(map[string]string)
 	branchToRegencyCode := make(map[string]string)
-
 	for _, b := range branches {
 		if b.RegenciesCode != "" {
-			exact := strings.ToUpper(strings.TrimSpace(b.Regencies))
-			exact = strings.ReplaceAll(exact, "WILL KOTA ", "KOTA ")
-			exact = strings.ReplaceAll(exact, "WIL. KOTA ", "KOTA ")
-			exact = strings.ReplaceAll(exact, "WIL KOTA ", "KOTA ")
-			kotaToRegencyCode[exact] = b.RegenciesCode
-
-			clean := strings.ReplaceAll(exact, "KOTA ", "")
-			clean = strings.ReplaceAll(clean, "KABUPATEN ", "")
-			clean = strings.ReplaceAll(clean, "KAB. ", "")
-			clean = strings.TrimSpace(clean)
-			if clean != "" && kotaToRegencyCode[clean] == "" {
-				kotaToRegencyCode[clean] = b.RegenciesCode
-			}
-
 			branchToRegencyCode[b.BranchCode] = b.RegenciesCode
 		}
 	}
 
-	var filteredResults []domain.PayBankReport
+	uniqueResults := make(map[string]domain.MissingBranchReport)
 	for i := range reports {
 		branchCodePenerima := s.extractPrefix(reports[i].BankTujuan, reports[i].NoRek)
+		if branchCodePenerima == "" {
+			continue
+		}
+
 		mappedPrefix := ""
 		if rc, ok := branchToRegencyCode[branchCodePenerima]; ok {
 			mappedPrefix = rc
@@ -133,37 +121,35 @@ func (s *ReportService) GetMissingBranchReport(ctx context.Context, startDate, e
 			mappedPrefix = branchCodePenerima
 		}
 
-		if mappedPrefix == branchCodePenerima && branchCodePenerima != "" {
-			reports[i].PrefixPenerima = mappedPrefix
-			kota := strings.ToUpper(strings.TrimSpace(reports[i].KotaPengirim))
-			if rc, ok := kotaToRegencyCode[kota]; ok {
-				reports[i].PrefixPengirim = rc
-			} else {
-				clean := strings.ReplaceAll(kota, "KOTA ", "")
-				clean = strings.ReplaceAll(clean, "KABUPATEN ", "")
-				clean = strings.ReplaceAll(clean, "KAB. ", "")
-				clean = strings.TrimSpace(clean)
-				if rc, ok := kotaToRegencyCode[clean]; ok {
-					reports[i].PrefixPengirim = rc
+		if mappedPrefix == branchCodePenerima {
+			key := fmt.Sprintf("%s|%s", reports[i].BankTujuan, mappedPrefix)
+			if _, exists := uniqueResults[key]; !exists {
+				uniqueResults[key] = domain.MissingBranchReport{
+					BankTujuan:     reports[i].BankTujuan,
+					PrefixPenerima: mappedPrefix,
 				}
 			}
-			filteredResults = append(filteredResults, reports[i])
 		}
 	}
 
-	totalFiltered := len(filteredResults)
+	var finalResults []domain.MissingBranchReport
+	for _, res := range uniqueResults {
+		finalResults = append(finalResults, res)
+	}
+
+	total := len(finalResults)
 	if limit > 0 {
 		end := offset + limit
-		if end > totalFiltered {
-			end = totalFiltered
+		if end > total {
+			end = total
 		}
-		if offset >= totalFiltered {
-			return []domain.PayBankReport{}, totalFiltered, nil
+		if offset >= total {
+			return []domain.MissingBranchReport{}, total, nil
 		}
-		filteredResults = filteredResults[offset:end]
+		finalResults = finalResults[offset:end]
 	}
 
-	return filteredResults, totalFiltered, nil
+	return finalResults, total, nil
 }
 
 func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endDate, bankTujuan string) ([]byte, error) {

@@ -20,6 +20,11 @@ type PayBankReport struct {
 	Volume         int64  `json:"volume"`
 }
 
+type MissingBranchReport struct {
+	BankTujuan     string `json:"bank_tujuan"`
+	PrefixPenerima string `json:"prefix_penerima"`
+}
+
 type PayBankReportRequest struct {
 	StartDate string `json:"start_date" binding:"required"`
 	EndDate   string `json:"end_date" binding:"required"`
@@ -28,5 +33,4 @@ type PayBankReportRequest struct {
 type ReportRepository interface {
 	GetReport(ctx context.Context, report []Report) error
 	GetPayBankReport(ctx context.Context, startDate, endDate, search, bankTujuan string, limit, offset int) ([]PayBankReport, int, error)
-	GetMissingBranchReport(ctx context.Context, startDate, endDate, search, bankTujuan string, limit, offset int) ([]PayBankReport, int, error)
 }
