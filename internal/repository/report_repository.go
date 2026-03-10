@@ -68,7 +68,7 @@ var (
 
 func (r *reportRepository) GetPayBankReport(
 	ctx context.Context,
-	startDate, endDate, search string,
+	startDate, endDate, search, bankTujuan string,
 	limit, offset int,
 ) ([]domain.PayBankReport, int, error) {
 
@@ -149,6 +149,7 @@ AND tt.time_start BETWEEN TO_DATE('%s','YYYYMMDD') AND TO_DATE('%s','YYYYMMDD') 
 
 	data := make([]domain.PayBankReport, 0, len(grouped))
 	searchTerm := strings.ToLower(search)
+	bankTujuanFilter := strings.ToLower(bankTujuan)
 
 	for key, vol := range grouped {
 		if searchTerm != "" {
@@ -156,6 +157,12 @@ AND tt.time_start BETWEEN TO_DATE('%s','YYYYMMDD') AND TO_DATE('%s','YYYYMMDD') 
 				strings.Contains(strings.ToLower(key.NamaPenerima), searchTerm) ||
 				strings.Contains(strings.ToLower(key.NoRek), searchTerm)
 			if !match {
+				continue
+			}
+		}
+
+		if bankTujuanFilter != "" {
+			if strings.ToLower(key.BankTujuan) != bankTujuanFilter {
 				continue
 			}
 		}

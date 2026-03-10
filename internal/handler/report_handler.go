@@ -29,6 +29,7 @@ func (h *ReportHandler) GetPayBankReport(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	search := c.Query("search")
+	bankTujuan := c.Query("bank_tujuan")
 
 	if startDate == "" || endDate == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -48,7 +49,7 @@ func (h *ReportHandler) GetPayBankReport(c *gin.Context) {
 
 	offset := (page - 1) * limit
 
-	report, total, err := h.service.GetPayBankReport(c.Request.Context(), startDate, endDate, search, limit, offset)
+	report, total, err := h.service.GetPayBankReport(c.Request.Context(), startDate, endDate, search, bankTujuan, limit, offset)
 	if err != nil {
 		h.logger.Error("failed to get paybank report",
 			zap.String("start_date", startDate),
@@ -87,7 +88,8 @@ func (h *ReportHandler) ExportPayBankReport(c *gin.Context) {
 		return
 	}
 
-	data, err := h.service.ExportPayBankReport(c.Request.Context(), startDate, endDate)
+	bankTujuan := c.Query("bank_tujuan")
+	data, err := h.service.ExportPayBankReport(c.Request.Context(), startDate, endDate, bankTujuan)
 	if err != nil {
 		h.logger.Error("failed to export paybank report",
 			zap.String("start_date", startDate),
@@ -121,7 +123,8 @@ func (h *ReportHandler) ExportPayBankExcelReport(c *gin.Context) {
 		return
 	}
 
-	data, err := h.service.ExportPayBankExcel(c.Request.Context(), startDate, endDate)
+	bankTujuan := c.Query("bank_tujuan")
+	data, err := h.service.ExportPayBankExcel(c.Request.Context(), startDate, endDate, bankTujuan)
 	if err != nil {
 		h.logger.Error("failed to export paybank excel report",
 			zap.String("start_date", startDate),

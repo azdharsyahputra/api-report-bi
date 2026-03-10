@@ -25,11 +25,11 @@ func NewReportService(repo domain.ReportRepository, branchRepo domain.BranchCode
 	}
 }
 
-func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate, search string, limit, offset int) ([]domain.PayBankReport, int, error) {
+func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate, search, bankTujuan string, limit, offset int) ([]domain.PayBankReport, int, error) {
 	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 
-	reports, total, err := s.repo.GetPayBankReport(ctx, startDate, endDate, search, limit, offset)
+	reports, total, err := s.repo.GetPayBankReport(ctx, startDate, endDate, search, bankTujuan, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -90,8 +90,8 @@ func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate
 	return reports, total, nil
 }
 
-func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endDate string) ([]byte, error) {
-	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", 0, 0)
+func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endDate, bankTujuan string) ([]byte, error) {
+	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", bankTujuan, 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -105,8 +105,8 @@ func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endD
 	return buf.Bytes(), nil
 }
 
-func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDate string) ([]byte, error) {
-	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", 0, 0)
+func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDate, bankTujuan string) ([]byte, error) {
+	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", bankTujuan, 0, 0)
 	if err != nil {
 		return nil, err
 	}
