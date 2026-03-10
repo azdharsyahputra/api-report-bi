@@ -173,7 +173,9 @@ func (r *branchCodeBankRepository) GetAll(ctx context.Context, bankName, search 
 			UPPER(regencies) LIKE UPPER('%s')
 			OR UPPER(office_type) LIKE UPPER('%s')
 			OR UPPER(name) LIKE UPPER('%s')
-		)`, pattern, pattern, pattern)
+			OR UPPER(branch_code) LIKE UPPER('%s')
+			OR UPPER(regencies_code) LIKE UPPER('%s')
+		)`, pattern, pattern, pattern, pattern, pattern)
 	}
 
 	query += " ORDER BY name ASC, id ASC"
