@@ -86,6 +86,86 @@ func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate
 	return reports, total, nil
 }
 
+func (s *ReportService) GetMissingBranchReport(ctx context.Context, startDate, endDate, search, bankTujuan string, limit, offset int) ([]domain.PayBankReport, int, error) {
+	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
+	defer cancel()
+
+	reports, _, err := s.repo.GetMissingBranchReport(ctx, startDate, endDate, search, bankTujuan, 0, 0)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	branches, _, err := s.branchRepo.GetAll(ctx, "", "", 0, 0)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	kotaToRegencyCode := make(map[string]string)
+	branchToRegencyCode := make(map[string]string)
+
+	for _, b := range branches {
+		if b.RegenciesCode != "" {
+			exact := strings.ToUpper(strings.TrimSpace(b.Regencies))
+			exact = strings.ReplaceAll(exact, "WILL KOTA ", "KOTA ")
+			exact = strings.ReplaceAll(exact, "WIL. KOTA ", "KOTA ")
+			exact = strings.ReplaceAll(exact, "WIL KOTA ", "KOTA ")
+			kotaToRegencyCode[exact] = b.RegenciesCode
+
+			clean := strings.ReplaceAll(exact, "KOTA ", "")
+			clean = strings.ReplaceAll(clean, "KABUPATEN ", "")
+			clean = strings.ReplaceAll(clean, "KAB. ", "")
+			clean = strings.TrimSpace(clean)
+			if clean != "" && kotaToRegencyCode[clean] == "" {
+				kotaToRegencyCode[clean] = b.RegenciesCode
+			}
+
+			branchToRegencyCode[b.BranchCode] = b.RegenciesCode
+		}
+	}
+
+	var filteredResults []domain.PayBankReport
+	for i := range reports {
+		branchCodePenerima := s.extractPrefix(reports[i].BankTujuan, reports[i].NoRek)
+		mappedPrefix := ""
+		if rc, ok := branchToRegencyCode[branchCodePenerima]; ok {
+			mappedPrefix = rc
+		} else {
+			mappedPrefix = branchCodePenerima
+		}
+
+		if mappedPrefix == branchCodePenerima && branchCodePenerima != "" {
+			reports[i].PrefixPenerima = mappedPrefix
+			kota := strings.ToUpper(strings.TrimSpace(reports[i].KotaPengirim))
+			if rc, ok := kotaToRegencyCode[kota]; ok {
+				reports[i].PrefixPengirim = rc
+			} else {
+				clean := strings.ReplaceAll(kota, "KOTA ", "")
+				clean = strings.ReplaceAll(clean, "KABUPATEN ", "")
+				clean = strings.ReplaceAll(clean, "KAB. ", "")
+				clean = strings.TrimSpace(clean)
+				if rc, ok := kotaToRegencyCode[clean]; ok {
+					reports[i].PrefixPengirim = rc
+				}
+			}
+			filteredResults = append(filteredResults, reports[i])
+		}
+	}
+
+	totalFiltered := len(filteredResults)
+	if limit > 0 {
+		end := offset + limit
+		if end > totalFiltered {
+			end = totalFiltered
+		}
+		if offset >= totalFiltered {
+			return []domain.PayBankReport{}, totalFiltered, nil
+		}
+		filteredResults = filteredResults[offset:end]
+	}
+
+	return filteredResults, totalFiltered, nil
+}
+
 func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endDate, bankTujuan string) ([]byte, error) {
 	reports, _, err := s.GetPayBankReport(ctx, startDate, endDate, "", bankTujuan, 0, 0)
 	if err != nil {

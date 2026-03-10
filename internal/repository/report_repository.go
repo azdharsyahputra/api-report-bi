@@ -202,3 +202,10 @@ AND tt.time_start <  TO_DATE('%s','YYYYMMDD') + 1
 
 	return data, total, nil
 }
+func (r *reportRepository) GetMissingBranchReport(
+	ctx context.Context,
+	startDate, endDate, search, bankTujuan string,
+	limit, offset int,
+) ([]domain.PayBankReport, int, error) {
+	return r.GetPayBankReport(ctx, startDate, endDate, search, bankTujuan, limit, offset)
+}

@@ -28,4 +28,5 @@ type PayBankReportRequest struct {
 type ReportRepository interface {
 	GetReport(ctx context.Context, report []Report) error
 	GetPayBankReport(ctx context.Context, startDate, endDate, search, bankTujuan string, limit, offset int) ([]PayBankReport, int, error)
+	GetMissingBranchReport(ctx context.Context, startDate, endDate, search, bankTujuan string, limit, offset int) ([]PayBankReport, int, error)
 }
