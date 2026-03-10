@@ -95,7 +95,7 @@ func (s *ReportService) GetMissingBranchReport(ctx context.Context, startDate, e
 		return nil, 0, err
 	}
 
-	branches, _, err := s.branchRepo.GetAll(ctx, "", "", 0, 0)
+	branches, _, err := s.branchRepo.GetAll(ctx, bankTujuan, "", 0, 0)
 	if err != nil {
 		return nil, 0, err
 	}
