@@ -51,9 +51,9 @@ func (r *kycRepository) executeQuery(query string) ([]byte, error) {
 	return respBody, nil
 }
 
-func (r *kycRepository) GetAllKyc(ctx context.Context, search string, limit, offset int) ([]domain.Kyc, int, error) {
+func (r *kycRepository) GetAllKyc(ctx context.Context, startDate, endDate, search string, limit, offset int) ([]domain.Kyc, int, error) {
 
-	query := `
+	query := fmt.Sprintf(`
 		select 
 			user_name,
 			full_name,
@@ -79,8 +79,8 @@ func (r *kycRepository) GetAllKyc(ctx context.Context, search string, limit, off
 		left join villages e on a.kode_kel_des=e.id 
 		where nvl(is_kyc_approved,0)=1 
 		and nvl(lvl,0)>1 
-		and joining_date between to_date('20260301','yyyymmdd') and to_date('20260310','yyyymmdd')+1
-	`
+		and joining_date between to_date('%s','yyyymmdd') and to_date('%s','yyyymmdd')+1
+	`, startDate, endDate)
 
 	respBody, err := r.executeQuery(query)
 	if err != nil {

@@ -25,5 +25,5 @@ type Kyc struct {
 }
 
 type KycRepository interface {
-	GetAllKyc(ctx context.Context, search string, limit, offset int) ([]Kyc, int, error)
+	GetAllKyc(ctx context.Context, startDate, endDate, search string, limit, offset int) ([]Kyc, int, error)
 }
