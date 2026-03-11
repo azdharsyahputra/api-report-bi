@@ -5,16 +5,23 @@ import (
 )
 
 type Kyc struct {
-	UserName   string   `json:"user_name"`
-	FullName   string   `json:"full_name"`
-	Address1   string   `json:"address1"`
-	Address2   string   `json:"address2"`
-	Zip        string   `json:"zip"`
-	KodeKota   string   `json:"kode_kota"`
-	KodeProv   string   `json:"kode_prov"`
-	Email      string   `json:"email"`
-	UploadType []string `json:"upload_type"`
-	FileName   []string `json:"file_name"`
+	UserName      string `json:"user_name"`
+	FullName      string `json:"full_name"`
+	IsKycApproved int    `json:"is_kyc_approved"`
+	Saldo         string `json:"saldo"`
+	Nik           string `json:"nik"`
+	KodeProv      string `json:"kode_prov"`
+	Province      string `json:"province"`
+	KodeKota      string `json:"kode_kota"`
+	Alamat        string `json:"alamat"`
+	KabKota       string `json:"kab_kota"`
+	KodeKec       string `json:"kode_kec"`
+	Kec           string `json:"kec"`
+	KodeKelDes    string `json:"kode_kel_des"`
+	KelDes        string `json:"kel_des"`
+	KodePos       string `json:"kode_pos"`
+	TanggalGabung string `json:"tanggal_gabung"`
+	KycFiles      string `json:"kyc_files"`
 }
 
 type KycRepository interface {

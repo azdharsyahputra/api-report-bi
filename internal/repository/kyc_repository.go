@@ -54,20 +54,32 @@ func (r *kycRepository) executeQuery(query string) ([]byte, error) {
 func (r *kycRepository) GetAllKyc(ctx context.Context, search string, limit, offset int) ([]domain.Kyc, int, error) {
 
 	query := `
-		SELECT 
-			tsu.user_name, 
-			tsu.full_name, 
-			tsu.address1, 
-			tsu.address2, 
-			tsu.zip, 
-			tsu.kode_kota, 
-			tsu.kode_prov, 
-			tsu.email, 
-			tku.upload_type, 
-			tku.file_name 
-		FROM t_store_user tsu 
-		INNER JOIN t_kyc_upload tku ON tsu.user_name = tku.user_name 
-		WHERE tsu.is_kyc_approved = 1
+		select 
+			user_name,
+			full_name,
+			is_kyc_approved,
+			balance saldo,
+			no_id nik,
+			kode_prov,
+			b.name province,
+			kode_kota,
+			trim(address1||' '||address2) alamat,
+			c.name kab_kota,
+			kode_kec,
+			d.name kec,
+			kode_kel_des,
+			e.name kel_des,
+			zip kode_pos,
+			to_char(joining_date,'dd/mm/yyyy') tanggal_gabung,
+			replace(get_all_store_user_ekyc(store_id,user_name),'c:\superx\img\','https://api.cashplus.id:3601/get_img?file=') kyc_files 
+		from t_store_user a 
+		left join provinces b on a.kode_prov=b.id 
+		left join regencies c on a.kode_kota=c.id 
+		left join districts d on a.kode_kec=d.id 
+		left join villages e on a.kode_kel_des=e.id 
+		where nvl(is_kyc_approved,0)=1 
+		and nvl(lvl,0)>1 
+		and joining_date between to_date('20260301','yyyymmdd') and to_date('20260310','yyyymmdd')+1
 	`
 
 	respBody, err := r.executeQuery(query)
@@ -89,68 +101,14 @@ func (r *kycRepository) GetAllKyc(ctx context.Context, search string, limit, off
 	rawJSON = sanitizeWindowsPath(rawJSON)
 
 	var apiResp struct {
-		Data []struct {
-			UserName   string `json:"user_name"`
-			FullName   string `json:"full_name"`
-			Address1   string `json:"address1"`
-			Address2   string `json:"address2"`
-			Zip        string `json:"zip"`
-			KodeKota   string `json:"kode_kota"`
-			KodeProv   string `json:"kode_prov"`
-			Email      string `json:"email"`
-			UploadType string `json:"upload_type"`
-			FileName   string `json:"file_name"`
-		} `json:"data"`
+		Data []domain.Kyc `json:"data"`
 	}
 
 	if err := json.Unmarshal([]byte(rawJSON), &apiResp); err != nil {
 		return nil, 0, fmt.Errorf("json decode failed: %v, raw: %s", err, rawJSON)
 	}
 
-	// Group by user_name + full_name + address1 + email
-	type groupKey struct {
-		UserName string
-		FullName string
-		Address1 string
-		Email    string
-	}
-
-	grouped := make(map[groupKey]*domain.Kyc)
-	order := make([]groupKey, 0)
-
-	for _, row := range apiResp.Data {
-		key := groupKey{
-			UserName: row.UserName,
-			FullName: row.FullName,
-			Address1: row.Address1,
-			Email:    row.Email,
-		}
-
-		if existing, ok := grouped[key]; ok {
-			existing.UploadType = append(existing.UploadType, row.UploadType)
-			existing.FileName = append(existing.FileName, row.FileName)
-		} else {
-			grouped[key] = &domain.Kyc{
-				UserName:   row.UserName,
-				FullName:   row.FullName,
-				Address1:   row.Address1,
-				Address2:   row.Address2,
-				Zip:        row.Zip,
-				KodeKota:   row.KodeKota,
-				KodeProv:   row.KodeProv,
-				Email:      row.Email,
-				UploadType: []string{row.UploadType},
-				FileName:   []string{row.FileName},
-			}
-			order = append(order, key)
-		}
-	}
-
-	// Build ordered result
-	data := make([]domain.Kyc, 0, len(order))
-	for _, key := range order {
-		data = append(data, *grouped[key])
-	}
+	data := apiResp.Data
 
 	// Filter by search keyword (case-insensitive)
 	if search != "" {
@@ -158,8 +116,7 @@ func (r *kycRepository) GetAllKyc(ctx context.Context, search string, limit, off
 		filtered := make([]domain.Kyc, 0)
 		for _, k := range data {
 			if strings.Contains(strings.ToLower(k.UserName), s) ||
-				strings.Contains(strings.ToLower(k.FullName), s) ||
-				strings.Contains(strings.ToLower(k.Email), s) {
+				strings.Contains(strings.ToLower(k.FullName), s) {
 				filtered = append(filtered, k)
 			}
 		}
