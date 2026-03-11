@@ -7,7 +7,7 @@ import (
 type Kyc struct {
 	UserName      string `json:"user_name"`
 	FullName      string `json:"full_name"`
-	IsKycApproved int    `json:"is_kyc_approved"`
+	IsKycApproved string `json:"is_kyc_approved"`
 	Saldo         string `json:"saldo"`
 	Nik           string `json:"nik"`
 	KodeProv      string `json:"kode_prov"`
