@@ -197,8 +197,7 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 	f.SetCellValue(sheet, "C5", year)
 	f.SetCellValue(sheet, "D5", month)
 
-	// Update record count
-	f.SetCellValue(sheet, "K4", len(reports))
+	// Update record count in Header
 	f.SetCellValue("LTDBB Header", "E18", len(reports))
 
 	for r := 7; r <= 9; r++ {
@@ -281,6 +280,15 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), r.Volume)
 		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), r.Jumlah)
 		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), tujuanDropdown)
+
+		// Populate dynamic formulas
+		f.SetCellFormula(sheet, fmt.Sprintf("A%d", row), "ROW()-6")
+		f.SetCellFormula(sheet, fmt.Sprintf("I%d", row), fmt.Sprintf(`LEFT(TRIM(B%d),4)&LEFT(TRIM(C%d),4)&LEFT(TRIM(D%d)&REPT(" ",50),50)&LEFT(TRIM(E%d)&REPT(" ",50),50)&RIGHT(REPT("0",12)&F%d,12)&RIGHT(REPT("0",15)&G%d,15)&LEFT(H%d,1)`, row, row, row, row, row, row, row))
+		f.SetCellValue(sheet, fmt.Sprintf("J%d", row), " [Delete] ")
+		f.SetCellFormula(sheet, fmt.Sprintf("M%d", row), fmt.Sprintf(`IF(OR(LEFT(C%d,1)="3",LEFT(C%d,1)="4"),$D$5-1,$D$5)`, row, row))
+		f.SetCellFormula(sheet, fmt.Sprintf("O%d", row), fmt.Sprintf(`DATE($C$5,M%d+1,0)`, row))
+		f.SetCellFormula(sheet, fmt.Sprintf("P%d", row), fmt.Sprintf(`DATE(Q%d,M%d,"01")`, row, row))
+		f.SetCellFormula(sheet, fmt.Sprintf("Q%d", row), fmt.Sprintf(`IF(OR(LEFT(C%d,1)="3",LEFT(C%d,1)="4"),$C$5-2,$C$5)`, row, row))
 	}
 
 	var buf bytes.Buffer
