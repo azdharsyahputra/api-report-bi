@@ -71,7 +71,7 @@ func (r *kycRepository) GetAllKyc(ctx context.Context, startDate, endDate, searc
 			e.name kel_des,
 			zip kode_pos,
 			to_char(joining_date,'dd/mm/yyyy') tanggal_gabung,
-			replace(get_all_store_user_ekyc(store_id,user_name),'c:\superx\img\','https://api.cashplus.id:3601/get_img?file=') kyc_files 
+			replace(replace(get_all_store_user_ekyc(store_id,user_name),'c:\superx\img\','https://api.cashplus.id:3601/get_img?file='),'\','/') kyc_files
 		from t_store_user a 
 		left join provinces b on a.kode_prov=b.id 
 		left join regencies c on a.kode_kota=c.id 
