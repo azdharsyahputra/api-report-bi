@@ -18,6 +18,7 @@ type PayBankReport struct {
 	BankTujuan     string `json:"bank_tujuan"`
 	Jumlah         string `json:"jumlah"`
 	Volume         int64  `json:"volume"`
+	TimeStart      string `json:"time_start"`
 }
 
 type MissingBranchReport struct {

@@ -73,7 +73,7 @@ func (r *reportRepository) GetPayBankReport(
 ) ([]domain.PayBankReport, int, error) {
 
 	query := fmt.Sprintf(`
-SELECT tt.nom, su.full_name, r.id, r.name, tt.te_transid
+SELECT tt.nom, su.full_name, r.id, r.name, tt.te_transid, TO_CHAR(tt.time_start, 'YYYY-MM-DD HH24:MI:SS') as time_start
 FROM t_trans tt
 LEFT JOIN t_store_user su ON tt.user_name = su.user_name
 LEFT JOIN regencies r ON su.kode_kota = r.id
@@ -97,6 +97,7 @@ AND tt.time_start <  TO_DATE('%s','YYYYMMDD') + 1
 			ID        string `json:"id"`
 			Name      string `json:"name"`
 			TeTransid string `json:"te_transid"`
+			TimeStart string `json:"time_start"`
 		} `json:"data"`
 	}
 
@@ -113,6 +114,7 @@ AND tt.time_start <  TO_DATE('%s','YYYYMMDD') + 1
 		NamaPenerima   string
 		BankTujuan     string
 		Jumlah         string
+		TimeStart      string
 	}
 
 	grouped := make(map[reportKey]int64)
@@ -146,6 +148,7 @@ AND tt.time_start <  TO_DATE('%s','YYYYMMDD') + 1
 			NamaPenerima:   namaPenerima,
 			BankTujuan:     bankTujuan,
 			Jumlah:         jumlah,
+			TimeStart:      row.TimeStart,
 		}
 
 		grouped[key]++
@@ -184,6 +187,7 @@ AND tt.time_start <  TO_DATE('%s','YYYYMMDD') + 1
 			BankTujuan:     key.BankTujuan,
 			Jumlah:         key.Jumlah,
 			Volume:         vol,
+			TimeStart:      key.TimeStart,
 		})
 	}
 
