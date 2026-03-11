@@ -182,20 +182,20 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 	sheet := "G0003"
 
 	// Update period in LTDBB Header & G0003
-	year := ""
-	month := ""
+	yearInt := 0
+	monthInt := 0
 	if len(startDate) >= 6 {
-		year = startDate[:4]
-		month = startDate[4:6]
+		yearInt, _ = strconv.Atoi(startDate[:4])
+		monthInt, _ = strconv.Atoi(startDate[4:6])
 	}
 
 	// LTDBB Header
-	f.SetCellValue("LTDBB Header", "E5", year)
-	f.SetCellValue("LTDBB Header", "F5", month)
+	f.SetCellValue("LTDBB Header", "E5", yearInt)
+	f.SetCellValue("LTDBB Header", "F5", monthInt)
 
 	// G0003 header
-	f.SetCellValue(sheet, "C5", year)
-	f.SetCellValue(sheet, "D5", month)
+	f.SetCellValue(sheet, "C5", yearInt)
+	f.SetCellValue(sheet, "D5", monthInt)
 
 	// Update record count in Header
 	f.SetCellValue("LTDBB Header", "E18", len(reports))
@@ -244,6 +244,23 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 	dvTujuan.SetSqrefDropList("TujuanTransaksi")
 	f.AddDataValidation(sheet, dvTujuan)
 
+	// Cache styles from row 7
+	colStyles := make(map[string]int)
+	for _, col := range []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q"} {
+		styleID, _ := f.GetCellStyle(sheet, col+"7")
+		colStyles[col] = styleID
+	}
+
+	// Create custom style for "[Delete]" (Bold + Red) based on J7 style
+	deleteStyle, _ := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "FF0000",
+		},
+	})
+	// Merge it with existing J7 style if possible (or just use it)
+	// For simplicity, we create a new one, but we could try to inherit borders etc.
+
 	for i, r := range reports {
 		row := 7 + i
 
@@ -289,6 +306,15 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 		f.SetCellFormula(sheet, fmt.Sprintf("O%d", row), fmt.Sprintf(`DATE($C$5,M%d+1,0)`, row))
 		f.SetCellFormula(sheet, fmt.Sprintf("P%d", row), fmt.Sprintf(`DATE(Q%d,M%d,"01")`, row, row))
 		f.SetCellFormula(sheet, fmt.Sprintf("Q%d", row), fmt.Sprintf(`IF(OR(LEFT(C%d,1)="3",LEFT(C%d,1)="4"),$C$5-2,$C$5)`, row, row))
+
+		// Apply styles to all cells in the row
+		for col, styleID := range colStyles {
+			if col == "J" {
+				f.SetCellStyle(sheet, col+strconv.Itoa(row), col+strconv.Itoa(row), deleteStyle)
+			} else {
+				f.SetCellStyle(sheet, col+strconv.Itoa(row), col+strconv.Itoa(row), styleID)
+			}
+		}
 	}
 
 	var buf bytes.Buffer
