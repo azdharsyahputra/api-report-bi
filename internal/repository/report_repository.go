@@ -129,6 +129,9 @@ AND tt.time_start <  TO_DATE('%s','YYYYMMDD') + 1
 		}
 		if m := reBank.FindStringSubmatch(row.TeTransid); len(m) > 1 {
 			bankTujuan = strings.TrimSpace(m[1])
+			if strings.ToUpper(bankTujuan) == "CIMB" {
+				bankTujuan = "CIMB NIAGA"
+			}
 		}
 		if m := reJumlah.FindStringSubmatch(row.TeTransid); len(m) > 1 {
 			jumlah = strings.ReplaceAll(strings.TrimSpace(m[1]), ".", "")
@@ -150,6 +153,9 @@ AND tt.time_start <  TO_DATE('%s','YYYYMMDD') + 1
 
 	data := make([]domain.PayBankReport, 0, len(grouped))
 	searchTerm := strings.ToLower(search)
+	if strings.ToUpper(bankTujuan) == "CIMB" {
+		bankTujuan = "CIMB NIAGA"
+	}
 	bankTujuanFilter := strings.ToLower(bankTujuan)
 
 	for key, vol := range grouped {

@@ -331,7 +331,7 @@ func (s *ReportService) extractPrefix(bankName, noRek string) string {
 		length = 4
 	case "BNI":
 		length = 3
-	case "MANDIRI", "CIMB NIAGA":
+	case "MANDIRI", "CIMB NIAGA", "CIMB":
 		length = 5
 	default:
 		return ""
