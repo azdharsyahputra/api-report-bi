@@ -110,6 +110,19 @@ func (r *kycRepository) GetAllKyc(ctx context.Context, startDate, endDate, searc
 
 	data := apiResp.Data
 
+	// Clean up kyc_files: trim spaces and fix backslashes
+	for i := range data {
+		if data[i].KycFiles != "" {
+			files := strings.Split(data[i].KycFiles, ",")
+			for j := range files {
+				files[j] = strings.TrimSpace(files[j])
+				// Ensure forward slash for URL consistency
+				files[j] = strings.ReplaceAll(files[j], "\\", "/")
+			}
+			data[i].KycFiles = strings.Join(files, ",")
+		}
+	}
+
 	// Filter by search keyword (case-insensitive)
 	if search != "" {
 		s := strings.ToLower(search)

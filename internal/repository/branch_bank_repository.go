@@ -47,6 +47,10 @@ func (r *branchCodeBankRepository) executeQuery(query string) ([]byte, error) {
 	return respBody, nil
 }
 
+func escapeString(s string) string {
+	return strings.ReplaceAll(s, "'", "''")
+}
+
 func (r *branchCodeBankRepository) Insert(ctx context.Context, code *domain.BranchCodeBank) error {
 
 	nowStr := time.Now().Format("2006-01-02 15:04:05")
