@@ -161,7 +161,7 @@ func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endD
 	var buf bytes.Buffer
 	for _, r := range reports {
 		line := s.buildExportLine(r)
-		buf.WriteString(line + "\n")
+		buf.WriteString(line + "\r\n")
 	}
 
 	return buf.Bytes(), nil
@@ -290,13 +290,13 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 		}
 
 		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), i+1)
-		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), pengirimDropdown)
-		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), penerimaDropdown)
-		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), strings.ToUpper(r.NamaPenerima))
-		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), strings.ToUpper(r.Pengirim))
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), cleanCellValue(pengirimDropdown))
+		f.SetCellValue(sheet, fmt.Sprintf("C%d", row), cleanCellValue(penerimaDropdown))
+		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), cleanCellValue(strings.ToUpper(r.NamaPenerima)))
+		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), cleanCellValue(strings.ToUpper(r.Pengirim)))
 		f.SetCellValue(sheet, fmt.Sprintf("F%d", row), r.Volume)
-		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), r.Jumlah)
-		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), tujuanDropdown)
+		f.SetCellValue(sheet, fmt.Sprintf("G%d", row), cleanCellValue(r.Jumlah))
+		f.SetCellValue(sheet, fmt.Sprintf("H%d", row), cleanCellValue(tujuanDropdown))
 
 		// Populate dynamic formulas
 		f.SetCellFormula(sheet, fmt.Sprintf("A%d", row), "ROW()-6")
@@ -328,10 +328,10 @@ func (s *ReportService) ExportPayBankExcel(ctx context.Context, startDate, endDa
 func (s *ReportService) buildExportLine(r domain.PayBankReport) string {
 	prefixPengirim := s.padLeftZero(r.PrefixPengirim, 4)
 	prefixPenerima := s.padLeftZero(r.PrefixPenerima, 4)
-	namaPenerima := s.padRight(strings.ToUpper(r.NamaPenerima), 50)
-	namaPengirim := s.padRight(strings.ToUpper(r.Pengirim), 50)
+	namaPenerima := s.padRight(cleanCellValue(strings.ToUpper(r.NamaPenerima)), 50)
+	namaPengirim := s.padRight(cleanCellValue(strings.ToUpper(r.Pengirim)), 50)
 	volume := s.padLeftZero(strconv.FormatInt(r.Volume, 10), 15)
-	nominal := s.padLeftZero(r.Jumlah, 12)
+	nominal := s.padLeftZero(cleanCellValue(r.Jumlah), 12)
 	tujuan := "3"
 
 	return prefixPengirim + prefixPenerima + namaPenerima + namaPengirim + volume + nominal + tujuan
@@ -349,6 +349,13 @@ func (s *ReportService) padLeftZero(sStr string, length int) string {
 		return sStr[len(sStr)-length:]
 	}
 	return fmt.Sprintf("%0*s", length, sStr)
+}
+
+// cleanCellValue removes hidden newline/carriage-return characters from cell values
+func cleanCellValue(s string) string {
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\n", "")
+	return strings.TrimSpace(s)
 }
 
 func (s *ReportService) extractPrefix(bankName, noRek string) string {
