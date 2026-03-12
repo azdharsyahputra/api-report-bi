@@ -161,7 +161,7 @@ func (s *ReportService) ExportPayBankReport(ctx context.Context, startDate, endD
 	var buf bytes.Buffer
 	for _, r := range reports {
 		line := s.buildExportLine(r)
-		buf.WriteString(line + "\r\n")
+		buf.WriteString(line + "\n")
 	}
 
 	return buf.Bytes(), nil

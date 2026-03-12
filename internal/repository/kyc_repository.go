@@ -58,7 +58,7 @@ func (r *kycRepository) GetAllKyc(ctx context.Context, startDate, endDate, searc
 			user_name,
 			full_name,
 			is_kyc_approved,
-			balance saldo,
+			nvl(balance,0) saldo,
 			no_id nik,
 			kode_prov,
 			b.name province,
