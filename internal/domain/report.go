@@ -2,11 +2,6 @@ package domain
 
 import "context"
 
-type Report struct {
-	ID   int64  `json:"id"`
-	Data string `json:"data"`
-}
-
 type PayBankReport struct {
 	KodeProduk     string `json:"kode_produk"`
 	Pengirim       string `json:"pengirim"`
@@ -32,6 +27,5 @@ type PayBankReportRequest struct {
 }
 
 type ReportRepository interface {
-	GetReport(ctx context.Context, report []Report) error
 	GetPayBankReport(ctx context.Context, startDate, endDate, search, bankTujuan string, limit, offset int) ([]PayBankReport, int, error)
 }

@@ -55,9 +55,6 @@ func (r *reportRepository) executeQuery(query string) ([]byte, error) {
 	return bodyBytes, nil
 }
 
-func (r *reportRepository) GetReport(ctx context.Context, report []domain.Report) error {
-	return nil
-}
 
 var (
 	reNoRek  = regexp.MustCompile(`NO\. REK\s*:\s*([^|]+)`)

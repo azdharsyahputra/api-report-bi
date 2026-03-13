@@ -36,7 +36,7 @@ func (h *ImportHandler) ImportBranchBankFile(c *gin.Context) {
 	if !h.isExcel(header.Filename) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": gin.H{
-				"message": "Invalid file format, only .xlsx is allowed",
+				"message": "Invalid file format, only .xlsm is allowed",
 			},
 		})
 		return
@@ -71,5 +71,5 @@ func (h *ImportHandler) ImportBranchBankFile(c *gin.Context) {
 }
 
 func (h *ImportHandler) isExcel(fileName string) bool {
-	return len(fileName) > 5 && fileName[len(fileName)-5:] == ".xlsx"
+	return len(fileName) > 5 && fileName[len(fileName)-5:] == ".xlsm"
 }

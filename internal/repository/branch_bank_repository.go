@@ -108,46 +108,6 @@ func (r *branchCodeBankRepository) BulkInsert(ctx context.Context, codes []domai
 	return nil
 }
 
-func (r *branchCodeBankRepository) executeBatchInsert(batch []domain.BranchCodeBank) error {
-
-	nowStr := time.Now().Format("2006-01-02 15:04:05")
-
-	var builder strings.Builder
-
-	builder.WriteString("INSERT ALL\n")
-
-	for _, code := range batch {
-
-		builder.WriteString(fmt.Sprintf(`
-	INTO m_branch_kode_bank
-	(name, branch_code, regencies_code, regencies, office_type, created_at, update_at)
-	VALUES('%s','%s','%s','%s','%s',
-	TO_DATE('%s','YYYY-MM-DD HH24:MI:SS'),
-	TO_DATE('%s','YYYY-MM-DD HH24:MI:SS'))
-`,
-			escapeString(code.Name),
-			escapeString(code.BranchCode),
-			escapeString(code.RegenciesCode),
-			escapeString(code.Regencies),
-			escapeString(code.OfficeType),
-			nowStr,
-			nowStr,
-		))
-	}
-
-	builder.WriteString("SELECT * FROM dual")
-
-	query := builder.String()
-
-	_, err := r.executeQuery(query)
-
-	if err != nil {
-		return fmt.Errorf("bulk insert error: %w", err)
-	}
-
-	return nil
-}
-
 func (r *branchCodeBankRepository) GetAll(ctx context.Context, bankName, search string, limit, offset int) ([]domain.BranchCodeBank, int, error) {
 
 	query := `
@@ -234,57 +194,6 @@ func (r *branchCodeBankRepository) GetAll(ctx context.Context, bankName, search 
 	return results, totalCount, nil
 }
 
-func (r *branchCodeBankRepository) FindByID(ctx context.Context, id int) (*domain.BranchCodeBank, error) {
-
-	query := fmt.Sprintf(`
-	SELECT id,name,branch_code,regencies_code,regencies,office_type,created_at,update_at
-	FROM m_branch_kode_bank
-	WHERE id=%d
-	`, id)
-
-	respBody, err := r.executeQuery(query)
-	if err != nil {
-		return nil, err
-	}
-
-	var apiResp struct {
-		Data []struct {
-			ID            json.Number `json:"id"`
-			Name          string      `json:"name"`
-			BranchCode    string      `json:"branch_code"`
-			RegenciesCode string      `json:"regencies_code"`
-			Regencies     string      `json:"regencies"`
-			OfficeType    string      `json:"office_type"`
-			CreatedAt     string      `json:"created_at"`
-			UpdateAt      string      `json:"update_at"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal(respBody, &apiResp); err != nil {
-		return nil, err
-	}
-
-	if len(apiResp.Data) == 0 {
-		return nil, nil
-	}
-
-	raw := apiResp.Data[0]
-	idVal, _ := raw.ID.Int64()
-
-	result := &domain.BranchCodeBank{
-		ID:            idVal,
-		Name:          raw.Name,
-		BranchCode:    raw.BranchCode,
-		RegenciesCode: raw.RegenciesCode,
-		Regencies:     raw.Regencies,
-		OfficeType:    raw.OfficeType,
-		CreatedAt:     raw.CreatedAt,
-		UpdateAt:      raw.UpdateAt,
-	}
-
-	return result, nil
-}
-
 func (r *branchCodeBankRepository) Update(ctx context.Context, code *domain.BranchCodeBank) (*domain.BranchCodeBank, error) {
 
 	nowStr := time.Now().Format("2006-01-02 15:04:05")
@@ -310,10 +219,4 @@ func (r *branchCodeBankRepository) Update(ctx context.Context, code *domain.Bran
 	}
 
 	return code, nil
-}
-
-func (r *branchCodeBankRepository) Delete(ctx context.Context, id int) error {
-	query := fmt.Sprintf(`DELETE FROM m_branch_kode_bank WHERE id=%d`, id)
-	_, err := r.executeQuery(query)
-	return err
 }

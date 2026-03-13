@@ -43,9 +43,7 @@ type RowError struct {
 type BranchCodeBankRepository interface {
 	Insert(ctx context.Context, code *BranchCodeBank) error
 	GetAll(ctx context.Context, bankName, search string, limit, offset int) ([]BranchCodeBank, int, error)
-	FindByID(ctx context.Context, id int) (*BranchCodeBank, error)
 	Update(ctx context.Context, code *BranchCodeBank) (*BranchCodeBank, error)
-	Delete(ctx context.Context, id int) error
 	BulkInsert(ctx context.Context, codes []BranchCodeBank) error
 }
 

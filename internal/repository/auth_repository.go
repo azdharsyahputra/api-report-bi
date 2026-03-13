@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"os"
 	"portal-report-bi/internal/domain"
 )
 
@@ -12,10 +13,8 @@ func NewAuthRepository() domain.AuthRepository {
 }
 
 func (r *authRepository) FindByEmail(ctx context.Context, email string) (*domain.User, error) {
-	const (
-		validEmail    = "admin@portal.com"
-		validPassword = "rahasia_report_bi"
-	)
+	validEmail := os.Getenv("ADMIN_EMAIL")
+	validPassword := os.Getenv("ADMIN_PASSWORD")
 
 	if email != validEmail {
 		return nil, domain.ErrUserNotFound
