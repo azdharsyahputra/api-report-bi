@@ -77,7 +77,7 @@ SELECT tt.nom, su.full_name, r.id, r.name, tt.te_transid, TO_CHAR(tt.time_start,
 FROM t_trans tt
 LEFT JOIN t_store_user su ON tt.user_name = su.user_name
 LEFT JOIN regencies r ON su.kode_kota = r.id
-WHERE tt.nom = 'PAYBANK'
+WHERE tt.nom IN ('PAYBANK','PAYBANKPROMO')
 AND tt.trans_stat = 200
 AND tt.time_start >= TO_DATE('%s','YYYYMMDD')
 AND tt.time_start <  TO_DATE('%s','YYYYMMDD') + 1
