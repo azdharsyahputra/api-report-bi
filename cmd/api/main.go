@@ -33,20 +33,20 @@ func main() {
 	excelParser := parser.NewExcelParser()
 	branchRepo := repository.NewBranchCodeBankRepository(queryServiceURL)
 	reportRepo := repository.NewReportRepository(queryServiceURL)
-	reportService := service.NewReportService(reportRepo, branchRepo)
+	reportService := service.NewReportService(reportRepo, branchRepo, logger)
 	reportHandler := handler.NewReportHandler(reportService, logger)
 
 	authRepo := repository.NewAuthRepository()
-	authService := service.NewAuthService(authRepo)
+	authService := service.NewAuthService(authRepo, logger)
 	authHandler := handler.NewAuthHandler(authService, logger)
 	importService := service.NewImportService(excelParser, branchRepo, logger)
 	importHandler := handler.NewImportHandler(importService, logger)
 
-	branchBankService := service.NewBranchBankService(branchRepo)
+	branchBankService := service.NewBranchBankService(branchRepo, logger)
 	branchBankHandler := handler.NewBranchBankHandler(branchBankService, logger)
 
 	kycRepo := repository.NewKycRepository(queryServiceURL)
-	kycService := service.NewKycService(kycRepo)
+	kycService := service.NewKycService(kycRepo, logger)
 	kycHandler := handler.NewKycHandler(kycService, logger)
 
 	r := gin.Default()

@@ -11,17 +11,20 @@ import (
 	"time"
 
 	"github.com/xuri/excelize/v2"
+	"go.uber.org/zap"
 )
 
 type ReportService struct {
 	repo       domain.ReportRepository
 	branchRepo domain.BranchCodeBankRepository
+	logger     *zap.Logger
 }
 
-func NewReportService(repo domain.ReportRepository, branchRepo domain.BranchCodeBankRepository) *ReportService {
+func NewReportService(repo domain.ReportRepository, branchRepo domain.BranchCodeBankRepository, logger *zap.Logger) *ReportService {
 	return &ReportService{
 		repo:       repo,
 		branchRepo: branchRepo,
+		logger:     logger,
 	}
 }
 
@@ -31,11 +34,17 @@ func (s *ReportService) GetPayBankReport(ctx context.Context, startDate, endDate
 
 	reports, total, err := s.repo.GetPayBankReport(ctx, startDate, endDate, search, bankTujuan, limit, offset)
 	if err != nil {
+		s.logger.Error("failed to get pay bank report",
+			zap.String("startDate", startDate),
+			zap.String("endDate", endDate),
+			zap.Error(err),
+		)
 		return nil, 0, err
 	}
 
 	branches, _, err := s.branchRepo.GetAll(ctx, "", "", 0, 0)
 	if err != nil {
+		s.logger.Error("failed to get branch bank for mapping", zap.Error(err))
 		return nil, 0, err
 	}
 
